@@ -1,0 +1,154 @@
+<?xml version='1.0'?>
+<sdf version='1.4'>
+  <xacro:property name="pi" value="3.14159265"/>
+
+  <model name="gbeam_soup">
+    <plugin name="assembly_soup" filename="libassembly_soup.so">
+      <!-- Mate Templates -->
+      <mate_template type="gbeam">
+        <!-- planar shear-supporting magnetic mate
+             mating surface is along positive z-axis
+             -->
+        <symmetry>
+          <rot>1 1 4</rot>
+        </symmetry>
+
+        <joint type="revolute1" name="gbeam">
+          <pose>0 0.5 0 0 ${pi/2} 0</pose>
+          <parent>gbeam_link</parent>
+          <child>gbeam_node</child>
+          <axis>
+            <xyz>1 0 0</xyz>
+            <limit><lower>0</lower><upper>0</upper></limit>
+          </axis>
+          <physics>
+            <ode>
+              <cfm_damping>1</cfm_damping>
+              <cfm>0.1</cfm>
+              <erp>0.1</erp>
+              <limit>
+                <cfm>0.1</cfm>
+                <erp>0.1</erp>
+              </limit>
+            </ode>
+          </physics>
+        </joint>
+      </mate_template>
+
+      <!-- Atom Templates -->
+      <atom_template type="gbeam_link">
+        <link name="gbeam_link">
+          <inertial>
+            <mass>0.3</mass>
+            <inertia>
+              <ixx>0.001</ixx><ixy>0</ixy>    <ixz>0</ixz>
+                              <iyy>0.002</iyy><iyz>0</iyz>
+                                              <izz>0.001</izz>
+            </inertia>
+          </inertial>
+          <collision name='collision'>
+            <geometry>
+              <box>
+                <size>0.05 0.3 0.05</size>
+              </box>
+            </geometry>
+          </collision>
+
+          <visual name='visual'>
+            <geometry>
+              <box>
+                <size>0.05 0.3 0.05</size>
+              </box>
+            </geometry>
+          </visual>
+        </link>
+
+        <mate type="gbeam" gender="male">
+          <pose>0 0.100 0 ${pi/2.0} 0 0</pose>
+        </mate>
+        <mate type="gbeam" gender="male">
+          <pose>0 -0.100 0 -${pi/2.0} 0 0</pose>
+        </mate>
+      </atom_template>
+
+      <atom_template type="gbeam_node">
+        <link name="gbeam_node">
+          <inertial>
+            <mass>0.2</mass>
+            <inertia>
+              <ixx>0.001</ixx><ixy>0</ixy>    <ixz>0</ixz>
+                              <iyy>0.001</iyy><iyz>0</iyz>
+                                              <izz>0.001</izz>
+            </inertia>
+          </inertial>
+
+          <collision name='collision'>
+            <geometry>
+              <box>
+                <size>0.05 0.05 0.05</size>
+              </box>
+            </geometry>
+          </collision>
+
+          <visual name='visual'>
+            <geometry>
+              <box>
+                <size>0.05 0.05 0.05</size>
+              </box>
+            </geometry>
+          </visual>
+        </link>
+
+        <mate type="gbeam" gender="female">
+          <pose>0 0 0.5 0 0 0</pose>
+        </mate>
+        <mate type="gbeam" gender="female">
+          <pose>0 0 -0.05 0 0 ${pi}</pose>
+        </mate>
+        <mate type="gbeam" gender="female">
+          <pose>0 0.05 0 -${pi/2.0} 0 0</pose>
+        </mate>
+        <mate type="gbeam" gender="female">
+          <pose>0 -0.05 0 ${pi/2.0} 0 0</pose>
+        </mate>
+        <mate type="gbeam" gender="female">
+          <pose>0.05 0 0 0 ${pi/2.0} 0</pose>
+        </mate>
+        <mate type="gbeam" gender="female">
+          <pose>-0.05 0 0 0 -${pi/2.0} 0</pose>
+        </mate>
+
+      </atom_template>
+
+      <assembly>
+        <atom type="gbeam_node">
+          <pose>0 0 0 0 0 0</pose>
+        </atom>
+        <atom type="gbeam_node">
+          <pose>0 0 0.3 0 0 0</pose>
+        </atom>
+        <atom type="gbeam_node">
+          <pose>0 0 0.6 0 0 0</pose>
+        </atom>
+        <atom type="gbeam_node">
+          <pose>0 0 0.9 0 0 0</pose>
+        </atom>
+
+        <atom type="gbeam_link">
+          <pose>0 0 0 0 0 0</pose>
+        </atom>
+        <atom type="gbeam_link">
+          <pose>0 0 0.1 0 0 0</pose>
+        </atom>
+        <atom type="gbeam_link">
+          <pose>0 0 0.2 0 0 0</pose>
+        </atom>
+        <atom type="gbeam_link">
+          <pose>0 0 0.3 0 0 0</pose>
+        </atom>
+      </assembly>
+    </plugin>
+
+  </model>
+</sdf>
+

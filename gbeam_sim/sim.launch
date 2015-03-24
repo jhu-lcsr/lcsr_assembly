@@ -1,0 +1,33 @@
+<launch>
+  <arg name="hydra" default="false"/>
+  <!--
+
+  rosrun xacro xacro.py gbeam.world.xacro > gbeam2.world && roslaunch sim.launch hydra:=true
+
+  -->
+
+  <!-- We resume the logic in empty_world.launch, changing only the name of the world to be launched -->
+  <include file="$(find gazebo_ros)/launch/empty_world.launch">
+    <arg name="world_name" value="$(find gbeam_sim)/gbeam2.world"/> <!-- Note: the world_name is with respect to GAZEBO_RESOURCE_PATH environmental variable -->
+    <arg name="paused" value="false"/>
+    <arg name="use_sim_time" value="true"/>
+    <arg name="gui" value="true"/>
+    <arg name="headless" value="false"/>
+    <arg name="debug" value="false"/>
+  </include>
+
+  <group if="$(arg hydra)">
+    <node pkg="gbeam_sim" type="tf_scaler.py" name="tf_scaler">
+      <param name="parent_frame_id" value="world"/>
+      <param name="unscaled_frame_id" value="hydra_right_grab"/>
+      <param name="scaled_frame_id" value="hydra_right_grab_desired"/>
+    </node>
+
+    <node pkg="tf" type="static_transform_publisher" name="$(anon stp)" args="0.5 0 -0.01 0 0 0 /world /hydra_base 100"/>
+
+    <include file="$(find razer_hydra)/launch/hydra.launch">
+      <arg name="publish_tf" value="true"/>
+    </include>
+  </group>
+</launch>
+
