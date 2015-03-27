@@ -59,7 +59,7 @@ namespace assembly_sim
 
       // Get the mate joint
       mate_model->joint_template = boost::make_shared<sdf::Element>();
-      mate_model->joint_template->Copy(mate_elem->GetElement("joint"));
+      sdf::readString(mate_elem->GetElement("joint")->ToString(), mate_model->joint_template);
 
       // Get the mate symmetries
       sdf::ElementPtr symmetry_elem = _sdf->GetElement("symmetry");
@@ -114,7 +114,7 @@ namespace assembly_sim
 
       // Get the atom link
       atom_model->link_template = boost::make_shared<sdf::Element>();
-      atom_model->link_template->Copy(atom_elem->GetElement("link"));
+      sdf::readString(atom_elem->GetElement("link")->ToString(), atom_model->link_template);
 
       // Get the atom mate points
       sdf::ElementPtr mate_elem = _sdf->GetElement("mate_point");
