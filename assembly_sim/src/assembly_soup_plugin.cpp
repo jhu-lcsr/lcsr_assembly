@@ -59,12 +59,23 @@ namespace assembly_sim
 
       // Get the mate joint
       mate_model->joint_template = boost::make_shared<sdf::Element>();
-      sdf::readString(mate_elem->GetElement("joint")->ToString(), mate_model->joint_template);
+
+      //std::stringstream ss;
+      //ss << "<sdf version='1.4'>" << mate_elem->GetElement("joint")->ToString("") << "</sdf>";
+      std::cout << mate_elem->GetElement("sdf")->ToString("") << std::endl;
+
+      sdf::SDFPtr tmp(new sdf::SDF());
+      sdf::init(tmp);
+      //sdf::Element template_sdf;
+      sdf::readString(mate_elem->GetElement("sdf")->ToString(""), tmp); //sdf::ElementPtr(&template_sdf));
+      mate_model->joint_template = tmp->root->GetElement("model")->GetElement("joint");
+
+      std::cout << mate_model->joint_template->ToString(">> ") << std::endl;
 
       // Get the mate symmetries
-      sdf::ElementPtr symmetry_elem = _sdf->GetElement("symmetry");
+      sdf::ElementPtr symmetry_elem = mate_elem->GetElement("symmetry");
       if(symmetry_elem) {
-        sdf::ElementPtr rot_elem = _sdf->GetElement("rot");
+        sdf::ElementPtr rot_elem = symmetry_elem->GetElement("rot");
 
         if(rot_elem) {
           sdf::Vector3 rot_symmetry;
@@ -114,10 +125,12 @@ namespace assembly_sim
 
       // Get the atom link
       atom_model->link_template = boost::make_shared<sdf::Element>();
-      sdf::readString(atom_elem->GetElement("link")->ToString(), atom_model->link_template);
+      sdf::readString(atom_elem->GetElement("link")->ToString(""), atom_model->link_template);
+
+      std::cout << atom_model->link_template->ToString(">> ") << std::endl;
 
       // Get the atom mate points
-      sdf::ElementPtr mate_elem = _sdf->GetElement("mate_point");
+      sdf::ElementPtr mate_elem = atom_elem->GetElement("mate_point");
       while(mate_elem)
       {
         std::string type;

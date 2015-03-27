@@ -23,29 +23,33 @@
           <symmetry>
             <rot>1 1 4</rot>
           </symmetry>
-          <joint name="gbeam" type="revolute1">
-            <pose>0 0.5 0 0 1.570796325 0</pose>
-            <parent>gbeam_link</parent>
-            <child>gbeam_node</child>
-            <axis>
-              <xyz>1 0 0</xyz>
-              <limit>
-                <lower>0</lower>
-                <upper>0</upper>
-              </limit>
-            </axis>
-            <physics>
-              <ode>
-                <cfm_damping>1</cfm_damping>
-                <cfm>0.1</cfm>
-                <erp>0.1</erp>
-                <limit>
-                  <cfm>0.1</cfm>
-                  <erp>0.1</erp>
-                </limit>
-              </ode>
-            </physics>
-          </joint>
+          <sdf version="1.4">
+            <model name="template">
+              <joint name="gbeam" type="revolute">
+                <pose>0 0.5 0 0 1.570796325 0</pose>
+                <parent>gbeam_link</parent>
+                <child>gbeam_node</child>
+                <axis>
+                  <xyz>1 0 0</xyz>
+                  <limit>
+                    <lower>0</lower>
+                    <upper>0</upper>
+                  </limit>
+                </axis>
+                <physics>
+                  <ode>
+                    <cfm_damping>1</cfm_damping>
+                    <cfm>0.1</cfm>
+                    <erp>0.1</erp>
+                    <limit>
+                      <cfm>0.1</cfm>
+                      <erp>0.1</erp>
+                    </limit>
+                  </ode>
+                </physics>
+              </joint>
+            </model>
+          </sdf>
         </mate_model>
         <!-- Atom Models -->
         <atom_model type="gbeam_link">
