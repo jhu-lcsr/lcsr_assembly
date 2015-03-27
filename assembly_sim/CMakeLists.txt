@@ -88,6 +88,7 @@ catkin_package(
 
 link_directories(
   ${GAZEBO_LIBRARY_DIRS}
+  ${orocos_kdl_LIBRARY_DIRS}
   )
 
 include_directories(include
@@ -100,6 +101,11 @@ include_directories(include
 add_library(assembly_soup_plugin
   src/assembly_soup_plugin.cpp
   )
+
+target_link_libraries(assembly_soup_plugin
+  ${GAZEBO_LIBRARY}
+  ${orocos_kdl_LIBRARIES}
+)
 
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
