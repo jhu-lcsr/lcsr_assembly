@@ -12,181 +12,181 @@
       <uri>model://ground_plane</uri>
     </include>
 
-    <model name ='hog'>
-      <plugin name='hand_of_god' filename="libgazebo_ros_hand_of_god.so">
-        <frameId>hydra_right_grab</frameId>
-        <linkName>hog</linkName>
-      </plugin>
+    <xacro:if value="0">
+      <model name ='hog'>
+        <plugin name='hand_of_god' filename="libgazebo_ros_hand_of_god.so">
+          <frameId>hydra_right_grab</frameId>
+          <linkName>hog</linkName>
+        </plugin>
 
-      <link name ='hog'>
+        <link name ='hog'>
+          <self_collide>0</self_collide>
+          <pose>0 0 0 0 0 0</pose>
+          <collision name ='collision'>
+            <geometry>
+              <sphere><radius>0.5</radius></sphere>
+            </geometry>
+          </collision>
+          <visual name ='visual'>
+            <geometry>
+              <sphere><radius>0.5</radius></sphere>
+            </geometry>
+          </visual>
+        </link>
+      </model>
+
+      <xacro:macro name="gbeam_node">
         <self_collide>0</self_collide>
-        <pose>0 0 0 0 0 0</pose>
         <collision name ='collision'>
           <geometry>
-            <sphere><radius>0.5</radius></sphere>
+            <box><size>1 1 1</size></box>
           </geometry>
         </collision>
         <visual name ='visual'>
           <geometry>
-            <sphere><radius>0.5</radius></sphere>
+            <box><size>1 1 1</size></box>
           </geometry>
         </visual>
-      </link>
-    </model>
+      </xacro:macro>
 
-    <xacro:macro name="gbeam_node">
-      <self_collide>0</self_collide>
-      <collision name ='collision'>
-        <geometry>
-          <box><size>1 1 1</size></box>
-        </geometry>
-      </collision>
-      <visual name ='visual'>
-        <geometry>
-          <box><size>1 1 1</size></box>
-        </geometry>
-      </visual>
-    </xacro:macro>
+      <xacro:macro name="gbeam_link">
+        <self_collide>0</self_collide>
+        <collision name ='collision'>
+          <geometry>
+            <box><size>0.2 4 0.2</size></box>
+          </geometry>
+        </collision>
+        <visual name ='visual'>
+          <geometry>
+            <box><size>0.2 4 0.2</size></box>
+          </geometry>
+        </visual>
+      </xacro:macro>
 
-    <xacro:macro name="gbeam_link">
-      <self_collide>0</self_collide>
-      <collision name ='collision'>
-        <geometry>
-          <box><size>0.2 4 0.2</size></box>
-        </geometry>
-      </collision>
-      <visual name ='visual'>
-        <geometry>
-          <box><size>0.2 4 0.2</size></box>
-        </geometry>
-      </visual>
-    </xacro:macro>
-
-    <xacro:macro name="gbeam_mate">
-      <axis>
-        <xyz>1 0 0</xyz>
-        <limit><lower>0</lower><upper>0</upper></limit>
-      </axis>
-      <physics>
-        <ode>
-          <cfm_damping>1</cfm_damping>
-          <cfm>0.1</cfm>
-          <erp>0.1</erp>
-          <limit>
+      <xacro:macro name="gbeam_mate">
+        <axis>
+          <xyz>1 0 0</xyz>
+          <limit><lower>0</lower><upper>0</upper></limit>
+        </axis>
+        <physics>
+          <ode>
+            <cfm_damping>1</cfm_damping>
             <cfm>0.1</cfm>
             <erp>0.1</erp>
-          </limit>
-        </ode>
-      </physics>
-    </xacro:macro>
+            <limit>
+              <cfm>0.1</cfm>
+              <erp>0.1</erp>
+            </limit>
+          </ode>
+        </physics>
+      </xacro:macro>
 
-    <xacro:property name="gbeam_mate_joint_type" value="revolute"/>
-    <xacro:property name="pi" value="3.14159265"/>
+      <xacro:property name="gbeam_mate_joint_type" value="revolute"/>
+      <xacro:property name="pi" value="3.14159265"/>
 
-    <model name ='assembly'>
-      <pose>1 2 10 0 0.2 0</pose>
+      <model name ='assembly'>
+        <pose>1 2 10 0 0.2 0</pose>
 
-      <link name ='node1'>
-        <pose>0 0 .5 0 0 0</pose>
-        <xacro:gbeam_node/>
-      </link>
+        <link name ='node1'>
+          <pose>0 0 .5 0 0 0</pose>
+          <xacro:gbeam_node/>
+        </link>
 
-      <joint type="${gbeam_mate_joint_type}" name='n1l12'>
-        <pose>0 -2 0 0 0 0</pose>
-        <parent>node1</parent>
-        <child>link12</child>
-        <xacro:gbeam_mate/>
-      </joint>
+        <joint type="${gbeam_mate_joint_type}" name='n1l12'>
+          <pose>0 -2 0 0 0 0</pose>
+          <parent>node1</parent>
+          <child>link12</child>
+          <xacro:gbeam_mate/>
+        </joint>
 
-      <link name ='link12'>
-        <self_collide>1</self_collide>
-        <pose>0 2.5 .5 0 0 0</pose>
-        <xacro:gbeam_link/>
-      </link>
+        <link name ='link12'>
+          <self_collide>1</self_collide>
+          <pose>0 2.5 .5 0 0 0</pose>
+          <xacro:gbeam_link/>
+        </link>
 
-      <joint type="${gbeam_mate_joint_type}" name='l12n2'>
-        <pose>0 2 0 0 0 0</pose>
-        <parent>node2</parent>
-        <child>link12</child>
-        <xacro:gbeam_mate/>
-      </joint>
+        <joint type="${gbeam_mate_joint_type}" name='l12n2'>
+          <pose>0 2 0 0 0 0</pose>
+          <parent>node2</parent>
+          <child>link12</child>
+          <xacro:gbeam_mate/>
+        </joint>
 
-      <link name ='node2'>
-        <pose>0 5 0.5 0 0 0</pose>
-        <xacro:gbeam_node/>
-      </link>
+        <link name ='node2'>
+          <pose>0 5 0.5 0 0 0</pose>
+          <xacro:gbeam_node/>
+        </link>
 
-      <joint type="${gbeam_mate_joint_type}" name='n2l23'>
-        <pose>0 -2 0 0 0 0</pose>
-        <parent>node2</parent>
-        <child>link23</child>
-        <xacro:gbeam_mate/>
-      </joint>
+        <joint type="${gbeam_mate_joint_type}" name='n2l23'>
+          <pose>0 -2 0 0 0 0</pose>
+          <parent>node2</parent>
+          <child>link23</child>
+          <xacro:gbeam_mate/>
+        </joint>
 
-      <link name ='link23'>
-        <pose>0 5 3 ${pi/2.0} 0 0</pose>
-        <xacro:gbeam_link/>
-      </link>
+        <link name ='link23'>
+          <pose>0 5 3 ${pi/2.0} 0 0</pose>
+          <xacro:gbeam_link/>
+        </link>
 
-      <joint type="${gbeam_mate_joint_type}" name='l23n3'>
-        <pose>0 2 0 0 0 0</pose>
-        <parent>node3</parent>
-        <child>link23</child>
-        <xacro:gbeam_mate/>
-      </joint>
+        <joint type="${gbeam_mate_joint_type}" name='l23n3'>
+          <pose>0 2 0 0 0 0</pose>
+          <parent>node3</parent>
+          <child>link23</child>
+          <xacro:gbeam_mate/>
+        </joint>
 
-      <link name ='node3'>
-        <pose>0 5 5.5 0 0 0</pose>
-        <xacro:gbeam_node/>
-      </link>
+        <link name ='node3'>
+          <pose>0 5 5.5 0 0 0</pose>
+          <xacro:gbeam_node/>
+        </link>
 
-      <joint type="${gbeam_mate_joint_type}" name='n3l34'>
-        <pose>0 2 0 0 0 0</pose>
-        <parent>node3</parent>
-        <child>link34</child>
-        <xacro:gbeam_mate/>
-      </joint>
+        <joint type="${gbeam_mate_joint_type}" name='n3l34'>
+          <pose>0 2 0 0 0 0</pose>
+          <parent>node3</parent>
+          <child>link34</child>
+          <xacro:gbeam_mate/>
+        </joint>
 
-      <link name ='link34'>
-        <pose>0 2.5 5.5 0 0 0</pose>
-        <xacro:gbeam_link/>
-      </link>
+        <link name ='link34'>
+          <pose>0 2.5 5.5 0 0 0</pose>
+          <xacro:gbeam_link/>
+        </link>
 
-      <joint type="${gbeam_mate_joint_type}" name='l34n4'>
-        <pose>0 -2 0 0 0 0</pose>
-        <parent>node4</parent>
-        <child>link34</child>
-        <xacro:gbeam_mate/>
-      </joint>
+        <joint type="${gbeam_mate_joint_type}" name='l34n4'>
+          <pose>0 -2 0 0 0 0</pose>
+          <parent>node4</parent>
+          <child>link34</child>
+          <xacro:gbeam_mate/>
+        </joint>
 
-      <link name ='node4'>
-        <pose>0 0 5.5 0 0 0</pose>
-        <xacro:gbeam_node/>
-      </link>
+        <link name ='node4'>
+          <pose>0 0 5.5 0 0 0</pose>
+          <xacro:gbeam_node/>
+        </link>
 
-      <joint type="${gbeam_mate_joint_type}" name='n4l41'>
-        <pose>0 2 0 0 0 0</pose>
-        <parent>node4</parent>
-        <child>link41</child>
-        <xacro:gbeam_mate/>
-      </joint>
+        <joint type="${gbeam_mate_joint_type}" name='n4l41'>
+          <pose>0 2 0 0 0 0</pose>
+          <parent>node4</parent>
+          <child>link41</child>
+          <xacro:gbeam_mate/>
+        </joint>
 
-      <link name ='link41'>
-        <pose>0 0 3 ${pi/2.0} 0 0</pose>
-        <xacro:gbeam_link/>
-      </link>
+        <link name ='link41'>
+          <pose>0 0 3 ${pi/2.0} 0 0</pose>
+          <xacro:gbeam_link/>
+        </link>
 
-      <joint type="${gbeam_mate_joint_type}" name='l41n1'>
-        <pose>0 -2 0 0 0 0</pose>
-        <parent>node1</parent>
-        <child>link41</child>
-        <xacro:gbeam_mate/>
-      </joint>
+        <joint type="${gbeam_mate_joint_type}" name='l41n1'>
+          <pose>0 -2 0 0 0 0</pose>
+          <parent>node1</parent>
+          <child>link41</child>
+          <xacro:gbeam_mate/>
+        </joint>
+      </model>
+    </xacro:if>
 
-      <xacro:if value="0">
-
-      </xacro:if>
-    </model>
+    <xacro:include filename="$(find gbeam_sim)/gbeam_soup.sdf.xacro"/>
 
   </world>
 </sdf>

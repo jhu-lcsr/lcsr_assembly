@@ -4,8 +4,9 @@ project(assembly_sim)
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
-find_package(catkin REQUIRED COMPONENTS orocos_kdl)
+find_package(catkin REQUIRED)
 find_package(gazebo REQUIRED)
+find_package(orocos_kdl REQUIRED)
 
 find_package(Boost COMPONENTS thread REQUIRED)
 
@@ -90,12 +91,13 @@ link_directories(
   )
 
 include_directories(include
+  ${OROCOS_KDL_INCLUDE_DIR}
   ${Boost_INCLUDE_DIR}
   ${catkin_INCLUDE_DIRS}
   ${GAZEBO_INCLUDE_DIRS}
   )
 
-add_library(${PROJECT_NAME}
+add_library(assembly_soup_plugin
   src/assembly_soup_plugin.cpp
   )
 

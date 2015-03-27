@@ -14,6 +14,21 @@
 #include <kdl/frames.hpp>
 
 namespace assembly_sim {
+  struct MateModel;
+  struct MatePointModel;
+  struct AtomModel;
+
+  struct Mate;
+  struct MatePoint;
+  struct Atom;
+
+  typedef boost::shared_ptr<MateModel> MateModelPtr;
+  typedef boost::shared_ptr<MatePointModel> MatePointModelPtr;
+  typedef boost::shared_ptr<AtomModel> AtomModelPtr;
+
+  typedef boost::shared_ptr<Mate> MatePtr;
+  typedef boost::shared_ptr<MatePoint> MatePointPtr;
+  typedef boost::shared_ptr<Atom> AtomPtr;
 
   // The model for a type of mate
   struct MateModel
@@ -21,13 +36,20 @@ namespace assembly_sim {
     std::string type;
 
     // Transforms from the base mate frame to alternative frames
-    std::vector<double> rot_symmetry;
-    std::vector<kdl::Frame> symmetries;
+    std::vector<KDL::Frame> symmetries;
 
     // The sdf template for the joint to be created
     sdf::ElementPtr joint_template;
   };
-  typedef boost::shared_ptr<MateModel> MateModelPtr;
+
+  struct MatePointModel
+  {
+    // The model used by this mate point
+    MateModelPtr model;
+
+    // The pose of the mate point in the owner frame
+    KDL::Frame pose;
+  };
 
   // The model for a type of atom
   struct AtomModel
@@ -36,13 +58,12 @@ namespace assembly_sim {
     std::string type;
 
     // Models for the mates
-    std::vector<MateModelPtr> female_mates;
-    std::vector<MateModelPtr> male_mates;
+    std::vector<MatePointModelPtr> female_mate_points;
+    std::vector<MatePointModelPtr> male_mate_points;
 
     // The sdf for the link to be created for this atom
     sdf::ElementPtr link_template;
   };
-  typedef boost::shared_ptr<AtomModel> AtomModel;
 
   // An instantiated mate
   struct Mate
@@ -51,17 +72,13 @@ namespace assembly_sim {
     // If this is NULL then the mate is unoccupied
     gazebo::physics::JointPtr joint;
   };
-  typedef boost::shared_ptr<Mate> MatePtr;
 
   // A point where a mate can be created
   struct MatePoint
   {
     // The model used by this mate point
-    MateModelPtr model;
-    // The pose of the mate point in the owner frame
-    kdl::Frame pose;
+    MatePointModelPtr model;
   };
-  typedef boost::shared_ptr<MatePoint> MatePointPtr;
 
   // An instantiated atom
   struct Atom
@@ -70,13 +87,12 @@ namespace assembly_sim {
     AtomModelPtr model;
 
     // Mate points
-    std::Vector<MatePointPtr> female_mate_points;
-    std::Vector<MatePointPtr> male_mate_points;
+    std::vector<MatePointPtr> female_mate_points;
+    std::vector<MatePointPtr> male_mate_points;
 
     // The link on the assembly model
     gazebo::physics::LinkPtr link;
   };
-  typedef boost::shared_ptr<Atom> AtomPtr;
 
   class AssemblySoup : public gazebo::ModelPlugin
   {
@@ -96,18 +112,17 @@ namespace assembly_sim {
       size_t mate_id_counter_;
       size_t atom_id_counter_;
 
-      std::map<std::string, Mate> mates_;
-      std::map<std::string, Atom> atoms_;
+      std::map<std::string, MateModelPtr> mate_models_;
+      std::map<std::string, AtomModelPtr> atom_models_;
 
-      std::vector<gazebo::physics::LinkPtr> instantiated_atoms_;
+      std::vector<AtomPtr> atoms_;
 
       typedef boost::unordered_map<MatePointPtr, MatePtr> mate_point_map_t;
       typedef boost::unordered_map<MatePointPtr, mate_point_map_t> mate_table_t;
       mate_table_t mate_table_;
 
       void instantiate_mate(const Mate &mate);
-      void instantiate_atom(const Atom &atom, const sdf::Pose &pose);
-
+      void instantiate_atom(const AtomModelPtr &atom, const sdf::Pose &pose);
   };
 }
 

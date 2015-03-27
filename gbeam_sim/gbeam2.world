@@ -13,361 +13,154 @@
     <include>
       <uri>model://ground_plane</uri>
     </include>
-    <model name="hog">
-      <plugin filename="libgazebo_ros_hand_of_god.so" name="hand_of_god">
-        <frameId>hydra_right_grab</frameId>
-        <linkName>hog</linkName>
+    <model name="gbeam_soup">
+      <plugin filename="libassembly_soup_plugin.so" name="assembly_soup">
+        <!-- Mate Models -->
+        <mate_model type="gbeam">
+          <!-- planar shear-supporting magnetic mate
+             mating surface is along positive z-axis
+             -->
+          <symmetry>
+            <rot>1 1 4</rot>
+          </symmetry>
+          <joint name="gbeam" type="revolute1">
+            <pose>0 0.5 0 0 1.570796325 0</pose>
+            <parent>gbeam_link</parent>
+            <child>gbeam_node</child>
+            <axis>
+              <xyz>1 0 0</xyz>
+              <limit>
+                <lower>0</lower>
+                <upper>0</upper>
+              </limit>
+            </axis>
+            <physics>
+              <ode>
+                <cfm_damping>1</cfm_damping>
+                <cfm>0.1</cfm>
+                <erp>0.1</erp>
+                <limit>
+                  <cfm>0.1</cfm>
+                  <erp>0.1</erp>
+                </limit>
+              </ode>
+            </physics>
+          </joint>
+        </mate_model>
+        <!-- Atom Models -->
+        <atom_model type="gbeam_link">
+          <link name="gbeam_link">
+            <pose>0 0 0 0 0 0</pose>
+            <self_collide>0</self_collide>
+            <inertial>
+              <mass>0.3</mass>
+              <inertia>
+                <ixx>0.001</ixx>
+                <ixy>0</ixy>
+                <ixz>0</ixz>
+                <iyy>0.002</iyy>
+                <iyz>0</iyz>
+                <izz>0.001</izz>
+              </inertia>
+            </inertial>
+            <collision name="collision">
+              <geometry>
+                <box>
+                  <size>0.05 0.3 0.05</size>
+                </box>
+              </geometry>
+            </collision>
+            <visual name="visual">
+              <geometry>
+                <box>
+                  <size>0.05 0.3 0.05</size>
+                </box>
+              </geometry>
+            </visual>
+          </link>
+          <mate_point gender="male" type="gbeam">
+            <pose>0 0.100 0 1.570796325 0 0</pose>
+          </mate_point>
+          <mate_point gender="male" type="gbeam">
+            <pose>0 -0.100 0 -1.570796325 0 0</pose>
+          </mate_point>
+        </atom_model>
+        <atom_model type="gbeam_node">
+          <link name="gbeam_node">
+            <pose>0 0 0 0 0 0</pose>
+            <self_collide>0</self_collide>
+            <inertial>
+              <mass>0.2</mass>
+              <inertia>
+                <ixx>0.001</ixx>
+                <ixy>0</ixy>
+                <ixz>0</ixz>
+                <iyy>0.001</iyy>
+                <iyz>0</iyz>
+                <izz>0.001</izz>
+              </inertia>
+            </inertial>
+            <collision name="collision">
+              <geometry>
+                <box>
+                  <size>0.05 0.05 0.05</size>
+                </box>
+              </geometry>
+            </collision>
+            <visual name="visual">
+              <geometry>
+                <box>
+                  <size>0.05 0.05 0.05</size>
+                </box>
+              </geometry>
+            </visual>
+          </link>
+          <mate_point gender="female" type="gbeam">
+            <pose>0 0 0.5 0 0 0</pose>
+          </mate_point>
+          <mate_point gender="female" type="gbeam">
+            <pose>0 0 -0.05 0 0 3.14159265</pose>
+          </mate_point>
+          <mate_point gender="female" type="gbeam">
+            <pose>0 0.05 0 -1.570796325 0 0</pose>
+          </mate_point>
+          <mate_point gender="female" type="gbeam">
+            <pose>0 -0.05 0 1.570796325 0 0</pose>
+          </mate_point>
+          <mate_point gender="female" type="gbeam">
+            <pose>0.05 0 0 0 1.570796325 0</pose>
+          </mate_point>
+          <mate_point gender="female" type="gbeam">
+            <pose>-0.05 0 0 0 -1.570796325 0</pose>
+          </mate_point>
+        </atom_model>
+        <assembly>
+          <atom type="gbeam_node">
+            <pose>0 0 0 0 0 0</pose>
+          </atom>
+          <atom type="gbeam_node">
+            <pose>0 0 0.3 0 0 0</pose>
+          </atom>
+          <atom type="gbeam_node">
+            <pose>0 0 0.6 0 0 0</pose>
+          </atom>
+          <atom type="gbeam_node">
+            <pose>0 0 0.9 0 0 0</pose>
+          </atom>
+          <atom type="gbeam_link">
+            <pose>0 0 0 0 0 0</pose>
+          </atom>
+          <atom type="gbeam_link">
+            <pose>0 0 0.1 0 0 0</pose>
+          </atom>
+          <atom type="gbeam_link">
+            <pose>0 0 0.2 0 0 0</pose>
+          </atom>
+          <atom type="gbeam_link">
+            <pose>0 0 0.3 0 0 0</pose>
+          </atom>
+        </assembly>
       </plugin>
-      <link name="hog">
-        <self_collide>0</self_collide>
-        <pose>0 0 0 0 0 0</pose>
-        <collision name="collision">
-          <geometry>
-            <sphere>
-              <radius>0.5</radius>
-            </sphere>
-          </geometry>
-        </collision>
-        <visual name="visual">
-          <geometry>
-            <sphere>
-              <radius>0.5</radius>
-            </sphere>
-          </geometry>
-        </visual>
-      </link>
-    </model>
-    <model name="assembly">
-      <pose>1 2 10 0 0.2 0</pose>
-      <link name="node1">
-        <pose>0 0 .5 0 0 0</pose>
-        <self_collide>0</self_collide>
-        <collision name="collision">
-          <geometry>
-            <box>
-              <size>1 1 1</size>
-            </box>
-          </geometry>
-        </collision>
-        <visual name="visual">
-          <geometry>
-            <box>
-              <size>1 1 1</size>
-            </box>
-          </geometry>
-        </visual>
-      </link>
-      <joint name="n1l12" type="revolute">
-        <pose>0 -2 0 0 0 0</pose>
-        <parent>node1</parent>
-        <child>link12</child>
-        <axis>
-          <xyz>1 0 0</xyz>
-          <limit>
-            <lower>0</lower>
-            <upper>0</upper>
-          </limit>
-        </axis>
-        <physics>
-          <ode>
-            <cfm_damping>1</cfm_damping>
-            <cfm>0.1</cfm>
-            <erp>0.1</erp>
-            <limit>
-              <cfm>0.1</cfm>
-              <erp>0.1</erp>
-            </limit>
-          </ode>
-        </physics>
-      </joint>
-      <link name="link12">
-        <self_collide>1</self_collide>
-        <pose>0 2.5 .5 0 0 0</pose>
-        <self_collide>0</self_collide>
-        <collision name="collision">
-          <geometry>
-            <box>
-              <size>0.2 4 0.2</size>
-            </box>
-          </geometry>
-        </collision>
-        <visual name="visual">
-          <geometry>
-            <box>
-              <size>0.2 4 0.2</size>
-            </box>
-          </geometry>
-        </visual>
-      </link>
-      <joint name="l12n2" type="revolute">
-        <pose>0 2 0 0 0 0</pose>
-        <parent>node2</parent>
-        <child>link12</child>
-        <axis>
-          <xyz>1 0 0</xyz>
-          <limit>
-            <lower>0</lower>
-            <upper>0</upper>
-          </limit>
-        </axis>
-        <physics>
-          <ode>
-            <cfm_damping>1</cfm_damping>
-            <cfm>0.1</cfm>
-            <erp>0.1</erp>
-            <limit>
-              <cfm>0.1</cfm>
-              <erp>0.1</erp>
-            </limit>
-          </ode>
-        </physics>
-      </joint>
-      <link name="node2">
-        <pose>0 5 0.5 0 0 0</pose>
-        <self_collide>0</self_collide>
-        <collision name="collision">
-          <geometry>
-            <box>
-              <size>1 1 1</size>
-            </box>
-          </geometry>
-        </collision>
-        <visual name="visual">
-          <geometry>
-            <box>
-              <size>1 1 1</size>
-            </box>
-          </geometry>
-        </visual>
-      </link>
-      <joint name="n2l23" type="revolute">
-        <pose>0 -2 0 0 0 0</pose>
-        <parent>node2</parent>
-        <child>link23</child>
-        <axis>
-          <xyz>1 0 0</xyz>
-          <limit>
-            <lower>0</lower>
-            <upper>0</upper>
-          </limit>
-        </axis>
-        <physics>
-          <ode>
-            <cfm_damping>1</cfm_damping>
-            <cfm>0.1</cfm>
-            <erp>0.1</erp>
-            <limit>
-              <cfm>0.1</cfm>
-              <erp>0.1</erp>
-            </limit>
-          </ode>
-        </physics>
-      </joint>
-      <link name="link23">
-        <pose>0 5 3 1.570796325 0 0</pose>
-        <self_collide>0</self_collide>
-        <collision name="collision">
-          <geometry>
-            <box>
-              <size>0.2 4 0.2</size>
-            </box>
-          </geometry>
-        </collision>
-        <visual name="visual">
-          <geometry>
-            <box>
-              <size>0.2 4 0.2</size>
-            </box>
-          </geometry>
-        </visual>
-      </link>
-      <joint name="l23n3" type="revolute">
-        <pose>0 2 0 0 0 0</pose>
-        <parent>node3</parent>
-        <child>link23</child>
-        <axis>
-          <xyz>1 0 0</xyz>
-          <limit>
-            <lower>0</lower>
-            <upper>0</upper>
-          </limit>
-        </axis>
-        <physics>
-          <ode>
-            <cfm_damping>1</cfm_damping>
-            <cfm>0.1</cfm>
-            <erp>0.1</erp>
-            <limit>
-              <cfm>0.1</cfm>
-              <erp>0.1</erp>
-            </limit>
-          </ode>
-        </physics>
-      </joint>
-      <link name="node3">
-        <pose>0 5 5.5 0 0 0</pose>
-        <self_collide>0</self_collide>
-        <collision name="collision">
-          <geometry>
-            <box>
-              <size>1 1 1</size>
-            </box>
-          </geometry>
-        </collision>
-        <visual name="visual">
-          <geometry>
-            <box>
-              <size>1 1 1</size>
-            </box>
-          </geometry>
-        </visual>
-      </link>
-      <joint name="n3l34" type="revolute">
-        <pose>0 2 0 0 0 0</pose>
-        <parent>node3</parent>
-        <child>link34</child>
-        <axis>
-          <xyz>1 0 0</xyz>
-          <limit>
-            <lower>0</lower>
-            <upper>0</upper>
-          </limit>
-        </axis>
-        <physics>
-          <ode>
-            <cfm_damping>1</cfm_damping>
-            <cfm>0.1</cfm>
-            <erp>0.1</erp>
-            <limit>
-              <cfm>0.1</cfm>
-              <erp>0.1</erp>
-            </limit>
-          </ode>
-        </physics>
-      </joint>
-      <link name="link34">
-        <pose>0 2.5 5.5 0 0 0</pose>
-        <self_collide>0</self_collide>
-        <collision name="collision">
-          <geometry>
-            <box>
-              <size>0.2 4 0.2</size>
-            </box>
-          </geometry>
-        </collision>
-        <visual name="visual">
-          <geometry>
-            <box>
-              <size>0.2 4 0.2</size>
-            </box>
-          </geometry>
-        </visual>
-      </link>
-      <joint name="l34n4" type="revolute">
-        <pose>0 -2 0 0 0 0</pose>
-        <parent>node4</parent>
-        <child>link34</child>
-        <axis>
-          <xyz>1 0 0</xyz>
-          <limit>
-            <lower>0</lower>
-            <upper>0</upper>
-          </limit>
-        </axis>
-        <physics>
-          <ode>
-            <cfm_damping>1</cfm_damping>
-            <cfm>0.1</cfm>
-            <erp>0.1</erp>
-            <limit>
-              <cfm>0.1</cfm>
-              <erp>0.1</erp>
-            </limit>
-          </ode>
-        </physics>
-      </joint>
-      <link name="node4">
-        <pose>0 0 5.5 0 0 0</pose>
-        <self_collide>0</self_collide>
-        <collision name="collision">
-          <geometry>
-            <box>
-              <size>1 1 1</size>
-            </box>
-          </geometry>
-        </collision>
-        <visual name="visual">
-          <geometry>
-            <box>
-              <size>1 1 1</size>
-            </box>
-          </geometry>
-        </visual>
-      </link>
-      <joint name="n4l41" type="revolute">
-        <pose>0 2 0 0 0 0</pose>
-        <parent>node4</parent>
-        <child>link41</child>
-        <axis>
-          <xyz>1 0 0</xyz>
-          <limit>
-            <lower>0</lower>
-            <upper>0</upper>
-          </limit>
-        </axis>
-        <physics>
-          <ode>
-            <cfm_damping>1</cfm_damping>
-            <cfm>0.1</cfm>
-            <erp>0.1</erp>
-            <limit>
-              <cfm>0.1</cfm>
-              <erp>0.1</erp>
-            </limit>
-          </ode>
-        </physics>
-      </joint>
-      <link name="link41">
-        <pose>0 0 3 1.570796325 0 0</pose>
-        <self_collide>0</self_collide>
-        <collision name="collision">
-          <geometry>
-            <box>
-              <size>0.2 4 0.2</size>
-            </box>
-          </geometry>
-        </collision>
-        <visual name="visual">
-          <geometry>
-            <box>
-              <size>0.2 4 0.2</size>
-            </box>
-          </geometry>
-        </visual>
-      </link>
-      <joint name="l41n1" type="revolute">
-        <pose>0 -2 0 0 0 0</pose>
-        <parent>node1</parent>
-        <child>link41</child>
-        <axis>
-          <xyz>1 0 0</xyz>
-          <limit>
-            <lower>0</lower>
-            <upper>0</upper>
-          </limit>
-        </axis>
-        <physics>
-          <ode>
-            <cfm_damping>1</cfm_damping>
-            <cfm>0.1</cfm>
-            <erp>0.1</erp>
-            <limit>
-              <cfm>0.1</cfm>
-              <erp>0.1</erp>
-            </limit>
-          </ode>
-        </physics>
-      </joint>
     </model>
   </world>
 </sdf>

@@ -4,6 +4,7 @@
 #include <gazebo/common/common.hh>
 #include <stdio.h>
 
+#include <boost/make_shared.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/format.hpp>
 
@@ -42,87 +43,136 @@ namespace assembly_sim
     this->model_ = _parent;
 
     // Get the description of the mates in this soup
-    sdf::ElementPtr mate_elem = _sdf->GetElement("mate");
+    sdf::ElementPtr mate_elem = _sdf->GetElement("mate_model");
 
-    while(mate_elem)
+    while(mate_elem && mate_elem->GetName() == "mate_model")
     {
       // Create a new mate
-      Mate mate;
-      mate_elem->GetAttribute("type")->Get(mate.type);
+      MateModelPtr mate_model = boost::make_shared<MateModel>();
+      if(mate_elem->HasAttribute("type")) {
+        mate_elem->GetAttribute("type")->Get(mate_model->type);
+        gzlog<<"Adding mate model for "<<mate_model->type<<std::endl;
+      } else {
+        gzerr<<"ERROR: no mate type for mate model"<<std::endl;
+        return;
+      }
 
       // Get the mate joint
-      mate.joint_template->Copy(mate_elem->GetElement("joint"));
+      mate_model->joint_template = boost::make_shared<sdf::Element>();
+      mate_model->joint_template->Copy(mate_elem->GetElement("joint"));
 
       // Get the mate symmetries
       sdf::ElementPtr symmetry_elem = _sdf->GetElement("symmetry");
       if(symmetry_elem) {
         sdf::ElementPtr rot_elem = _sdf->GetElement("rot");
-        sdf::Vector3 rot_symmetry;
-        rot_elem->GetValue()->Get(rot_symmetry);
+
+        if(rot_elem) {
+          sdf::Vector3 rot_symmetry;
+          rot_elem->GetValue()->Get(rot_symmetry);
+
+          // compute symmetries
+          const double x_step = M_PI*2.0/rot_symmetry.x;
+          const double y_step = M_PI*2.0/rot_symmetry.y;
+          const double z_step = M_PI*2.0/rot_symmetry.z;
+
+          for(double ix=0; ix < rot_symmetry.x; ix++)
+          {
+            KDL::Rotation Rx = KDL::Rotation::RotX(ix * x_step);
+            for(double iy=0; iy < rot_symmetry.y; iy++)
+            {
+              KDL::Rotation Ry = KDL::Rotation::RotY(iy * y_step);
+              for(double iz=0; iz < rot_symmetry.z; iz++)
+              {
+                KDL::Rotation Rz = KDL::Rotation::RotZ(iz * z_step);
+                mate_model->symmetries.push_back(KDL::Frame(Rx*Ry*Rz, KDL::Vector(0,0,0)));
+              }
+            }
+          }
+        }
       }
 
-      // Store this atom
-      mates_[mate.type] = mate;
+      // Add the identity if no symmetries were added
+      if(mate_model->symmetries.size() == 0) {
+        mate_model->symmetries.push_back(KDL::Frame());
+      }
+
+      // Store this mate model
+      mate_models_[mate_model->type] = mate_model;
 
       // Get the next atom element
-      mate_elem = mate_elem->GetNextElement("mate");
+      mate_elem = mate_elem->GetNextElement(mate_elem->GetName());
     }
 
     // Get the description of the atoms in this soup
-    sdf::ElementPtr atom_elem = _sdf->GetElement("atom");
+    sdf::ElementPtr atom_elem = _sdf->GetElement("atom_model");
 
-    while(atom_elem)
+    while(atom_elem && atom_elem->GetName() == "atom_model")
     {
       // Create a new atom
-      Atom atom;
-      atom_elem->GetAttribute("type")->Get(atom.type);
+      AtomModelPtr atom_model = boost::make_shared<AtomModel>();
+      atom_elem->GetAttribute("type")->Get(atom_model->type);
 
       // Get the atom link
-      atom.link_template->Copy(atom_elem->GetElement("link"));
+      atom_model->link_template = boost::make_shared<sdf::Element>();
+      atom_model->link_template->Copy(atom_elem->GetElement("link"));
 
-      // Get the atom mates
-      sdf::ElementPtr mate_elem = _sdf->GetElement("mate");
+      // Get the atom mate points
+      sdf::ElementPtr mate_elem = _sdf->GetElement("mate_point");
       while(mate_elem)
       {
-        Mate mate;
-
-        mate_elem->GetAttribute("type")->Get(mate.type);
-        to_kdl(mate_elem->GetElement("pose"), mate.pose);
-
+        std::string type;
         std::string gender;
+        KDL::Frame base_pose;
+
+        mate_elem->GetAttribute("type")->Get(type);
         mate_elem->GetAttribute("gender")->Get(gender);
-        if(boost::iequals(gender, "female")) {
-          atom.female_mates.push_back(mate);
-          if(boost::iequals(gender, "male")) {
-            atom.male_mates.push_back(mate);
+        to_kdl(mate_elem->GetElement("pose"), base_pose);
+
+        MateModelPtr mate_model = mate_models_[type];
+
+        for(std::vector<KDL::Frame>::iterator pose_it = mate_model->symmetries.begin();
+            pose_it != mate_model->symmetries.end();
+            ++pose_it)
+        {
+          MatePointModelPtr mate_point_model = boost::make_shared<MatePointModel>();
+          mate_point_model->pose = (*pose_it) * base_pose;
+
+          if(boost::iequals(gender, "female")) {
+            atom_model->female_mate_points.push_back(mate_point_model);
+          } else if(boost::iequals(gender, "male")) {
+            atom_model->male_mate_points.push_back(mate_point_model);
           }
         }
 
-        // Store this atom
-        atoms_[atom.type] = atom;
-
-        // Get the next atom element
-        atom_elem = atom_elem->GetNextElement("atom");
+        // Get the next mate point element
+        mate_elem = atom_elem->GetNextElement(mate_elem->GetName());
       }
+
+      // Store this atom
+      atom_models_[atom_model->type] = atom_model;
+
+      // Get the next atom element
+      atom_elem = atom_elem->GetNextElement(atom_elem->GetName());
     }
 
     // Construct the initial assembly soup
     sdf::ElementPtr assembly_elem = _sdf->GetElement("assembly");
     sdf::ElementPtr assem_atom_elem = assembly_elem->GetElement("atom");
 
-    while(assem_atom_elem)
+    while(assem_atom_elem && assem_atom_elem->GetName() == "atom")
     {
       // Get the instance details
       std::string type;
-      assem_atom_elem->GetAttribute("type")->Get(type);
       sdf::Pose pose;
+
+      assem_atom_elem->GetAttribute("type")->Get(type);
       assem_atom_elem->GetElement("pose")->GetValue()->Get(pose);
 
       // Instantiate the atom
-      instantiate_atom(atoms_[type], pose);
+      instantiate_atom(atom_models_[type], pose);
 
       // Get the next atom element
-      assem_atom_elem = assem_atom_elem->GetNextElement("atom");
+      assem_atom_elem = assem_atom_elem->GetNextElement(assem_atom_elem->GetName());
     }
 
     // Listen to the update event. This event is broadcast every
@@ -148,6 +198,8 @@ namespace assembly_sim
       {
         MatePointPtr female_mate_point = *it_fmp;
 
+        KDL::Frame female_mate_pose;
+
         // Iterate over all other atoms
         for(std::vector<AtomPtr>::iterator it_ma = atoms_.begin();
             it_ma != atoms_.end();
@@ -166,7 +218,9 @@ namespace assembly_sim
             MatePointPtr male_mate_point = *it_mmp;
 
             // Skip if the mates are incompatible
-            if(female_mate_point->model->type != male_mate_point->model->type) { continue; }
+            if(female_mate_point->model->model->type != male_mate_point->model->model->type) { continue; }
+
+            KDL::Frame male_mate_pose;
 
             // Get the mate between these two mate points
             MatePtr mate;
@@ -177,64 +231,67 @@ namespace assembly_sim
               // This female mate point needs to be added
               mate = boost::make_shared<Mate>();
               mate_point_map_t mate_point_map;
-              mate_point_map.insert(male_mate_point, mate);
-              mate_table_.insert(female_mate_point, mate_point_map);
+              mate_point_map[male_mate_point] = mate;
+              mate_table_[female_mate_point] = mate_point_map;
             }
-            else if(mtf->find(male_mate_point) == mtf->end())
+            else if(mtf->second.find(male_mate_point) == mtf->second.end())
             {
               // This male mate point needs to be added
               mate = boost::make_shared<Mate>();
-              mtf->insert(male_mate_point, mate);
+              mtf->second[male_mate_point] = mate;
             }
             else
             {
               // This mate pair is already in the table
-              mate = mtf->at(male_mate_point);
+              mate = mtf->second.at(male_mate_point);
             }
 
             // Compute the mate pose
-              
 
             // compute twist between the two mate points
             KDL::Twist twist_err = diff(female_mate_pose, male_mate_pose);
 
-            if(/* mate exists */) {
-              if(/* twist is too large */) {
+            if(mate->joint->GetParent() && mate->joint->GetChild()) {
+              if(false) {
                 // detach joint
                 mate->joint->Detach();
                 // disable the mate
               }
             } else {
-              if(/* twist is small enough */) {
+              if(false) {
                 // attach joint
                 mate->joint->Attach(female_atom->link, male_atom->link);
               }
             }
           }
         }
-        // Check the proximity between the two mates
-        KDL::Frame
-
       }
     }
   }
 
-  void AssemblySoup::instantiate_atom(const Atom &atom, const sdf::Pose &pose)
+  void AssemblySoup::instantiate_atom(const AtomModelPtr &atom_model, const sdf::Pose &pose)
   {
+    AtomPtr atom = boost::make_shared<Atom>();
+
     // Fill out the link template with the instantiated information
     sdf::ElementPtr link_template(new sdf::Element());
-    link_template->Copy(atom.link_template);
-    link_template->GetAttribute("name")->Set(str(boost::format("%s_%0d") % atom.type % atom_id_counter_++));
+    link_template->Copy(atom_model->link_template);
+
+    gzwarn<<"instantiate: "<<link_template->ToString("> ")<<std::endl;
+
+    link_template->GetAttribute("name")->Set(str(boost::format("%s_%0d") % atom_model->type % atom_id_counter_++));
     link_template->GetElement("pose")->GetValue()->Set(pose);
 
     // Create a new link owned by this model
-    gazebo::physics::LinkPtr link =
+    atom->link =
       model_->GetWorld()->GetPhysicsEngine()->CreateLink(
           boost::static_pointer_cast<gazebo::physics::Model>(model_));
 
     // Load the link information
-    link->Load(link_template);
-    link->Init();
+    atom->link->Load(link_template);
+    atom->link->Init();
+
+    atoms_.push_back(atom);
   }
 
 #if 0
