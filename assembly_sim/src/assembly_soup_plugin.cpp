@@ -27,6 +27,11 @@ static void to_kdl(const gazebo::math::Pose pose, KDL::Frame &frame)
       KDL::Vector(pose.pos.x, pose.pos.y, pose.pos.z));
 }
 
+static std::string complete_sdf(const std::string &incomplete_sdf)
+{
+  return std::string("<sdf version=\"1.4\">\n<model name=\"template\">\n" + incomplete_sdf + "\n</model>\n</sdf>");
+}
+
 namespace assembly_sim
 {
 
@@ -41,6 +46,7 @@ namespace assembly_sim
   {
     // Store the pointer to the model
     this->model_ = _parent;
+    this->sdf_ = _sdf;
 
     // Get the description of the mates in this soup
     sdf::ElementPtr mate_elem = _sdf->GetElement("mate_model");
@@ -57,27 +63,20 @@ namespace assembly_sim
         return;
       }
 
-      // Get the mate joint
-      mate_model->joint_template = boost::make_shared<sdf::Element>();
-
-      //std::stringstream ss;
-      //ss << "<sdf version='1.4'>" << mate_elem->GetElement("joint")->ToString("") << "</sdf>";
-      std::cout << mate_elem->GetElement("sdf")->ToString("") << std::endl;
-
-      sdf::SDFPtr tmp(new sdf::SDF());
-      sdf::init(tmp);
-      //sdf::Element template_sdf;
-      sdf::readString(mate_elem->GetElement("sdf")->ToString(""), tmp); //sdf::ElementPtr(&template_sdf));
-      mate_model->joint_template = tmp->root->GetElement("model")->GetElement("joint");
-
-      std::cout << mate_model->joint_template->ToString(">> ") << std::endl;
+      // Get the mate template joint
+      mate_model->joint_template_sdf = boost::make_shared<sdf::SDF>();
+      sdf::init(sdf::SDFPtr(mate_model->joint_template_sdf));
+      sdf::readString(complete_sdf(mate_elem->GetElement("joint")->ToString("")), mate_model->joint_template_sdf);
+      mate_model->joint_template = mate_model->joint_template_sdf->root->GetElement("model")->GetElement("joint");
 
       // Get the mate symmetries
       sdf::ElementPtr symmetry_elem = mate_elem->GetElement("symmetry");
-      if(symmetry_elem) {
+      if(symmetry_elem)
+      {
         sdf::ElementPtr rot_elem = symmetry_elem->GetElement("rot");
 
-        if(rot_elem) {
+        if(rot_elem)
+        {
           sdf::Vector3 rot_symmetry;
           rot_elem->GetValue()->Get(rot_symmetry);
 
@@ -127,7 +126,11 @@ namespace assembly_sim
       atom_model->link_template = boost::make_shared<sdf::Element>();
       sdf::readString(atom_elem->GetElement("link")->ToString(""), atom_model->link_template);
 
-      std::cout << atom_model->link_template->ToString(">> ") << std::endl;
+      // Get the atom template link
+      atom_model->link_template_sdf = boost::make_shared<sdf::SDF>();
+      sdf::init(sdf::SDFPtr(atom_model->link_template_sdf));
+      sdf::readString(complete_sdf(atom_elem->GetElement("link")->ToString("")), atom_model->link_template_sdf);
+      atom_model->link_template = atom_model->link_template_sdf->root->GetElement("model")->GetElement("link");
 
       // Get the atom mate points
       sdf::ElementPtr mate_elem = atom_elem->GetElement("mate_point");
@@ -181,8 +184,10 @@ namespace assembly_sim
       assem_atom_elem->GetAttribute("type")->Get(type);
       assem_atom_elem->GetElement("pose")->GetValue()->Get(pose);
 
+      // TODO: add the links to the model sdf element?
+      // TODO: add all possible joints to the model sdf element?
       // Instantiate the atom
-      instantiate_atom(atom_models_[type], pose);
+      //instantiate_atom(atom_models_[type], pose);
 
       // Get the next atom element
       assem_atom_elem = assem_atom_elem->GetNextElement(assem_atom_elem->GetName());
@@ -197,6 +202,9 @@ namespace assembly_sim
   // Called by the world update start event
   void AssemblySoup::OnUpdate(const gazebo::common::UpdateInfo & /*_info*/)
   {
+    // TODO: remove preemtive return
+    return;
+
     // Iterate over all atoms
     for(std::vector<AtomPtr>::iterator it_fa = atoms_.begin();
         it_fa != atoms_.end();
@@ -290,12 +298,16 @@ namespace assembly_sim
     sdf::ElementPtr link_template(new sdf::Element());
     link_template->Copy(atom_model->link_template);
 
-    gzwarn<<"instantiate: "<<link_template->ToString("> ")<<std::endl;
-
     link_template->GetAttribute("name")->Set(str(boost::format("%s_%0d") % atom_model->type % atom_id_counter_++));
     link_template->GetElement("pose")->GetValue()->Set(pose);
 
+    gzwarn<<"instantiate: "<<link_template->ToString(">> ")<<std::endl;
+
+
     // Create a new link owned by this model
+#if 1
+    sdf_->InsertElement(link_template);
+#else
     atom->link =
       model_->GetWorld()->GetPhysicsEngine()->CreateLink(
           boost::static_pointer_cast<gazebo::physics::Model>(model_));
@@ -303,6 +315,9 @@ namespace assembly_sim
     // Load the link information
     atom->link->Load(link_template);
     atom->link->Init();
+    atom->link->SetEnabled(true);
+    model_->GetLinks().push_back(atom->link);
+#endif
 
     atoms_.push_back(atom);
   }

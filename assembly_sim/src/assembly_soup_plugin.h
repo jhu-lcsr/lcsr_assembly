@@ -39,6 +39,7 @@ namespace assembly_sim {
     std::vector<KDL::Frame> symmetries;
 
     // The sdf template for the joint to be created
+    boost::shared_ptr<sdf::SDF> joint_template_sdf;
     sdf::ElementPtr joint_template;
   };
 
@@ -62,6 +63,7 @@ namespace assembly_sim {
     std::vector<MatePointModelPtr> male_mate_points;
 
     // The sdf for the link to be created for this atom
+    boost::shared_ptr<sdf::SDF> link_template_sdf;
     sdf::ElementPtr link_template;
   };
 
@@ -104,6 +106,7 @@ namespace assembly_sim {
       // Pointer to the model
     private:
       gazebo::physics::ModelPtr model_;
+      sdf::ElementPtr sdf_;
 
       // Pointer to the update event connection
       gazebo::event::ConnectionPtr updateConnection_;
