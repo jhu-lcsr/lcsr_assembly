@@ -97,7 +97,9 @@ namespace assembly_sim
 
   AssemblySoup::AssemblySoup() :
     mate_id_counter_(0),
-    atom_id_counter_(0)
+    atom_id_counter_(0),
+    max_trans_err_(0.01),
+    max_rot_err_(0.1)
   {
 
   }
@@ -107,6 +109,24 @@ namespace assembly_sim
     // Store the pointer to the model
     this->model_ = _parent;
     this->sdf_ = _sdf;
+
+
+    // store mate point error
+    // from configuration in files
+    sdf::ElementPtr trans_err_elem = _sdf->GetElement("trans_mate_err");
+    if (trans_err_elem) {
+      double trans_mate_err;
+      bool _err_res = trans_err_elem->GetValue()->Get(trans_mate_err);
+      gzwarn<<"Setting mate translational error="<<trans_mate_err<<std::endl;
+      this->max_trans_err_ = trans_mate_err;
+    }
+    sdf::ElementPtr rot_err_elem = _sdf->GetElement("rot_mate_err");
+    if (rot_err_elem) {
+      double rot_mate_err;
+      bool _err_res = rot_err_elem->GetValue()->Get(rot_mate_err);
+      gzwarn<<"Setting mate rotational error="<<rot_mate_err<<std::endl;
+      this->max_rot_err_ = rot_mate_err;
+    }
 
     // Get the description of the mates in this soup
     sdf::ElementPtr mate_elem = _sdf->GetElement("mate_model");
@@ -303,6 +323,7 @@ namespace assembly_sim
   }
 
   // Called by the world update start event
+  // This is where the logic that connects and updates joints needs to happen
   void AssemblySoup::OnUpdate(const gazebo::common::UpdateInfo & /*_info*/)
   {
     // Iterate over all atoms
@@ -404,7 +425,7 @@ namespace assembly_sim
                 }
               } else {
                 //gzwarn<<"Parts are not mated!"<<std::endl;
-                if(twist_err.vel.Norm() < 0.01 and twist_err.rot.Norm() < 0.1) {
+                if(twist_err.vel.Norm() < max_trans_err_ and twist_err.rot.Norm() < max_rot_err_) {
                   gzwarn<<" --- from "<<female_atom->link->GetName()<<" -> "<<male_atom->link->GetName()<<std::endl;
                   gzwarn<<" --- twist err: "<<twist_err.vel<<std::endl;
                   gzwarn<<" --- mating."<<std::endl;

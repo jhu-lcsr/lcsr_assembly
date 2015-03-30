@@ -41,6 +41,9 @@
   <!--   <test_depend>gtest</test_depend> -->
   <buildtool_depend>catkin</buildtool_depend>
 
+  <run_depend>gazebo_plugins</run_depend>
+  <run_depend>assembly_sim</run_depend>
+  <run_depend>gbeam_link</run_depend>
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>

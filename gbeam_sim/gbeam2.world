@@ -13,8 +13,34 @@
     <include>
       <uri>model://ground_plane</uri>
     </include>
+    <model name="hog">
+      <plugin filename="libgazebo_ros_hand_of_god.so" name="hand_of_god">
+        <frameId>hydra_right_grab</frameId>
+        <linkName>hog</linkName>
+      </plugin>
+      <link name="hog">
+        <self_collide>0</self_collide>
+        <pose>0 0 1 0 0 0</pose>
+        <collision name="collision">
+          <geometry>
+            <sphere>
+              <radius>0.025</radius>
+            </sphere>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <sphere>
+              <radius>0.025</radius>
+            </sphere>
+          </geometry>
+        </visual>
+      </link>
+    </model>
     <model name="gbeam_soup">
       <plugin filename="libassembly_soup_plugin.so" name="assembly_soup">
+        <trans_mate_err>0.1</trans_mate_err>
+        <rot_mate_err>1.0</rot_mate_err>
         <!-- Mate Models -->
         <mate_model type="gbeam">
           <!-- planar shear-supporting magnetic mate

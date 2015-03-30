@@ -128,6 +128,9 @@ namespace assembly_sim {
       size_t mate_id_counter_;
       size_t atom_id_counter_;
 
+      double max_trans_err_;
+      double max_rot_err_;
+
       std::map<std::string, MateModelPtr> mate_models_;
       std::map<std::string, AtomModelPtr> atom_models_;
 

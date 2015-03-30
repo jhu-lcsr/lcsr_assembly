@@ -69,6 +69,8 @@
 
   <model name="gbeam_soup">
     <plugin name="assembly_soup" filename="libassembly_soup_plugin.so">
+      <trans_mate_err>10.0</trans_mate_err>
+      <rot_mate_err>10.0</rot_mate_err>
       <!-- Mate Models -->
       <mate_model type="gbeam">
         <!-- planar shear-supporting magnetic mate
