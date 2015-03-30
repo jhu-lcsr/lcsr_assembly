@@ -427,11 +427,15 @@ namespace assembly_sim
                 //gzwarn<<"Parts are not mated!"<<std::endl;
                 if(twist_err.vel.Norm() < max_trans_err_ and twist_err.rot.Norm() < max_rot_err_) {
                   gzwarn<<" --- from "<<female_atom->link->GetName()<<" -> "<<male_atom->link->GetName()<<std::endl;
-                  gzwarn<<" --- twist err: "<<twist_err.vel<<std::endl;
+                  gzwarn<<" --- trans twist err: "<<twist_err.vel<<std::endl;
+                  gzwarn<<" --- rot twist err: "<<twist_err.rot<<std::endl;
                   gzwarn<<" --- mating."<<std::endl;
 
                   // attach joint
                   mate->joint->Attach(female_atom->link, male_atom->link);
+                  KDL::Frame tmp;
+                  to_kdl(mate->joint->GetInitialAnchorPose(),tmp);
+                  gzwarn<<" --- joint pose: "<<std::endl<<tmp<<std::endl;
                   //mate->joint->Init();
                 }
               }

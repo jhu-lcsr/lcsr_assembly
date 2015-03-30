@@ -28,7 +28,7 @@
       <param name="parent_frame_id" value="world"/>
       <param name="unscaled_frame_id" value="hydra_right_grab"/>
       <param name="scaled_frame_id" value="hydra_right_grab_desired"/>
-      <param name="scale" value="10.0"/>
+      <param name="scale" value="4.0"/>
     </node>
 
     <include file="$(find razer_hydra)/launch/hydra.launch">

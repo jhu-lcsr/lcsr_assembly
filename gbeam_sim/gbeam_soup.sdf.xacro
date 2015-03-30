@@ -69,7 +69,7 @@
 
   <model name="gbeam_soup">
     <plugin name="assembly_soup" filename="libassembly_soup_plugin.so">
-      <trans_mate_err>10.0</trans_mate_err>
+      <trans_mate_err>0.5</trans_mate_err>
       <rot_mate_err>10.0</rot_mate_err>
       <!-- Mate Models -->
       <mate_model type="gbeam">
@@ -90,12 +90,12 @@
           </axis>
           <physics>
             <ode>
-              <cfm_damping>1</cfm_damping>
-              <cfm>0.1</cfm>
-              <erp>0.1</erp>
+              <cfm_damping>true</cfm_damping>
+              <cfm>0.8</cfm>
+              <erp>0.03</erp>
               <limit>
                 <cfm>0.1</cfm>
-                <erp>0.1</erp>
+                <erp>0.2</erp>
               </limit>
             </ode>
           </physics>
@@ -105,7 +105,8 @@
       <!-- Atom Models -->
       <atom_model type="gbeam_link">
         <mate_point type="gbeam" gender="male">
-          <pose>0 0.100 0 ${pi/2.0} 0 0</pose>
+          <!--<pose>0 0.100 0 ${pi/2.0} 0 0</pose>-->
+          <pose>0 0.100 0 0 0</pose>
         </mate_point>
         <!--<mate_point type="gbeam" gender="male">-->
           <!--<pose>0 -0.100 0 -${pi/2.0} 0 0</pose>-->
