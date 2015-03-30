@@ -7,6 +7,7 @@ project(assembly_sim)
 find_package(catkin REQUIRED)
 find_package(gazebo REQUIRED)
 find_package(orocos_kdl REQUIRED)
+find_package(eigen REQUIRED)
 
 find_package(Boost COMPONENTS thread REQUIRED)
 
@@ -96,6 +97,7 @@ include_directories(include
   ${Boost_INCLUDE_DIR}
   ${catkin_INCLUDE_DIRS}
   ${GAZEBO_INCLUDE_DIRS}
+  ${EIGEN_INCLUDE_DIRS}
   )
 
 add_library(assembly_soup_plugin
