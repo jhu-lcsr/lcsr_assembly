@@ -48,6 +48,9 @@ namespace assembly_sim {
     // The model used by this mate point
     MateModelPtr model;
 
+    // Mate point index
+    size_t id;
+
     // The pose of the mate point in the owner frame
     KDL::Frame pose;
   };
@@ -70,6 +73,16 @@ namespace assembly_sim {
   // An instantiated mate
   struct Mate
   {
+    // TODO add constructor that does lines 300-326 from the cpp file
+    Mate(
+      gazebo::physics::ModelPtr gazebo_model,
+      MatePointModelPtr female_mate_point_model,
+      MatePointModelPtr male_mate_point_model,
+      AtomPtr female_atom,
+      AtomPtr male_atom);
+
+    // Joint SDF
+    sdf::ElementPtr joint_sdf;
     // Joint associated with mate
     // If this is NULL then the mate is unoccupied
     gazebo::physics::JointPtr joint;
@@ -124,8 +137,8 @@ namespace assembly_sim {
       typedef boost::unordered_map<MatePointPtr, mate_point_map_t> mate_table_t;
       mate_table_t mate_table_;
 
-      void instantiate_mate(const Mate &mate);
-      void instantiate_atom(const AtomModelPtr &atom, const sdf::Pose &pose);
+      //void instantiate_mate(const Mate &mate);
+      //void instantiate_atom(const AtomModelPtr &atom, const sdf::Pose &pose);
   };
 }
 
