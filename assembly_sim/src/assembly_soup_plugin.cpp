@@ -54,7 +54,7 @@ namespace assembly_sim
     joint()
   {
     gzwarn<<"Creating joint for mate type: "
-      <<mate_point_model->model->type<<" "
+      <<female_mate_point_model->model->type<<" "
       <<female_atom->link->GetName()
       <<" -> "
       <<male_atom->link->GetName()
@@ -64,7 +64,7 @@ namespace assembly_sim
     // TODO: make sure the joint is initialized with the joint template
     // TODO: make sure it is created detached
     // TODO: make sure it is created in the right location
-    MateModelPtr mate_model = mate_point_model->model;
+    MateModelPtr mate_model = female_mate_point_model->model;
 
     // Get the joint type
     std::string joint_type;
@@ -83,7 +83,7 @@ namespace assembly_sim
     joint_sdf->GetElement("child")->GetValue()->Set(male_atom->link->GetName());
 
     gazebo::math::Pose pose;
-    to_gazebo(mate_point_model->pose, pose);
+    to_gazebo(male_mate_point_model->pose, pose);
     joint_sdf->GetElement("pose")->GetValue()->Set(pose);
 
     gzwarn<<"joint sdf:\n\n"<<joint_sdf->ToString(">>")<<std::endl;
@@ -367,6 +367,7 @@ namespace assembly_sim
               mate = boost::make_shared<Mate>(
                   model_,
                   female_mate_point->model,
+                  male_mate_point->model,
                   female_atom,
                   male_atom);
               mate_point_map[male_mate_point] = mate;
@@ -378,6 +379,7 @@ namespace assembly_sim
               mate = boost::make_shared<Mate>(
                   model_,
                   female_mate_point->model,
+                  male_mate_point->model,
                   female_atom,
                   male_atom);
 

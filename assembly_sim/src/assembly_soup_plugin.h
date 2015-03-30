@@ -76,7 +76,8 @@ namespace assembly_sim {
     // TODO add constructor that does lines 300-326 from the cpp file
     Mate(
       gazebo::physics::ModelPtr gazebo_model,
-      MatePointModelPtr mate_point_model,
+      MatePointModelPtr female_mate_point_model,
+      MatePointModelPtr male_mate_point_model,
       AtomPtr female_atom,
       AtomPtr male_atom);
 
