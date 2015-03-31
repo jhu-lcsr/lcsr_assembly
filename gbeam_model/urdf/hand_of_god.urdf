@@ -1,0 +1,12 @@
+<robot name="hand_of_god">
+  <link name="hog">
+    <visual>
+      <geometry>
+        <sphere radius="0.05"/>
+      </geometry>
+      <material name="white">
+        <color rgba="0.75 0.80 1 1"/>
+      </material>
+    </visual>
+  </link>
+</robot>

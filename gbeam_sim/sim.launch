@@ -3,6 +3,9 @@
   <arg name="hydra" default="false"/>
   <arg name="debug" default="false"/>
   <arg name="paused" default="false"/>
+  <arg name="rviz" default="false" doc="(bool) bring up rviz UI to see mates"/>
+  <arg name="rviz_config" default="$(find gbeam_sim)/config/sim.rviz" doc="(string) rviz config file for user interface"/>
+
   <!--
 
   rosrun xacro xacro.py gbeam.world.xacro > gbeam2.world && roslaunch sim.launch hydra:=true
@@ -10,6 +13,8 @@
   -->
 
   <param name="use_sim_time" value="true"/>
+  <param name="gbeam_link_description" textfile="$(find gbeam_model)/urdf/gbeam_link.urdf"/>
+  <param name="gbeam_node_description" textfile="$(find gbeam_model)/urdf/gbeam_node.urdf"/>
 
   <!-- We resume the logic in empty_world.launch, changing only the name of the world to be launched -->
   <include file="$(find gazebo_ros)/launch/empty_world.launch">
@@ -21,7 +26,12 @@
     <arg name="debug" value="$(arg debug)"/>
   </include>
 
+  <node if="$(arg rviz)" pkg="rviz" type="rviz" name="rviz" args="-d $(arg rviz_config)" />
+
   <group if="$(arg hydra)">
+
+    <param if="$(arg rviz)" name="hand_of_god_description" textfile="$(find gbeam_model)/urdf/hand_of_god.urdf"/>
+    <node if="$(arg rviz)" pkg="tf" type="static_transform_publisher" name="$(anon stp)" args="0 0 0 0 0 0 /hydra_right_grab_desired /hog 100"/>
 
     <node pkg="tf" type="static_transform_publisher" name="$(anon stp)" args="0.5 0 -0.01 0 0 0 /world /hydra_base 100"/>
 
@@ -31,6 +41,8 @@
       <param name="scaled_frame_id" value="hydra_right_grab_desired"/>
       <param name="scale" value="4.0"/>
     </node>
+
+
 
     <include file="$(find razer_hydra)/launch/hydra.launch">
       <arg name="publish_tf" value="true"/>

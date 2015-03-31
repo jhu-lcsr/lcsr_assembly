@@ -382,17 +382,43 @@ namespace assembly_sim
       to_kdl(female_atom->link->GetWorldPose(), female_atom_frame);
 
       std::stringstream ss;
-      ss << female_atom->model->type << link_idx;
+      ss << "link" << link_idx;
       std::string link_name = ss.str();
-      ss.clear();
+      ss << "/" << female_atom->model->type;
+      std::string body_name = ss.str();
 
       if(broadcast_tf_) {
+        std::stringstream ss;
         tf::Transform tf_frame;
         to_tf(female_atom->link->GetWorldPose(), tf_frame);
         br.sendTransform(tf::StampedTransform(tf_frame,
                                               ros::Time::now(),
                                               tf_world_frame_,
-                                              link_name));
+                                              body_name));
+      }
+
+
+      // print out all mate points
+      // done in a separate loop so we don't publish too many things...
+      // this would be very wasteful if we buried it in the innermost for-loop
+      if(broadcast_tf_) {
+        unsigned int male_idx = 0;
+        for(std::vector<MatePointPtr>::iterator it_mmp = female_atom->male_mate_points.begin();
+            it_mmp != female_atom->male_mate_points.end();
+            ++it_mmp,++male_idx)
+        {
+          MatePointPtr male_mate_point = *it_mmp;
+
+          std::stringstream ss;
+          ss << link_name << "/male" << male_idx;
+
+          tf::Transform tf_frame;
+          tf::poseKDLToTF(male_mate_point->model->pose,tf_frame);
+          br.sendTransform(tf::StampedTransform(tf_frame,
+                                                ros::Time::now(),
+                                                body_name,
+                                                ss.str()));
+        }
       }
 
       unsigned int female_idx = 0;
@@ -412,15 +438,14 @@ namespace assembly_sim
         KDL::Frame female_mate_frame = female_atom_frame * female_mate_point->model->pose;
 
         if(broadcast_tf_) {
-          ss << link_name << "_female" << female_idx;
+          std::stringstream ss;
+          ss << link_name << "/female" << female_idx;
           tf::Transform tf_frame;
           tf::poseKDLToTF(female_mate_point->model->pose,tf_frame);
-          to_tf(female_atom->link->GetWorldPose(), tf_frame);
           br.sendTransform(tf::StampedTransform(tf_frame,
                                                 ros::Time::now(),
-                                                link_name,
+                                                body_name,
                                                 ss.str()));
-          ss.clear();
         }
 
         // Iterate over all other atoms
