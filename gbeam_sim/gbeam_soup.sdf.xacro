@@ -70,7 +70,7 @@
   <model name="gbeam_soup">
     <plugin name="assembly_soup" filename="libassembly_soup_plugin.so">
 
-      <trans_mate_err>0.1</trans_mate_err>
+      <trans_mate_err>0.2</trans_mate_err>
       <rot_mate_err>0.1</rot_mate_err>
       <tf_world_frame>world</tf_world_frame>
 

@@ -111,33 +111,33 @@ Visualization Manager:
       Reference Frame: link1/male0
       Value: true
     - Class: rviz/Axes
-      Enabled: true
+      Enabled: false
       Length: 0.05
       Name: NODE FEMALE 0
       Radius: 0.01
       Reference Frame: link0/female0
-      Value: true
+      Value: false
     - Class: rviz/Axes
-      Enabled: true
+      Enabled: false
       Length: 0.05
       Name: NODE FEMALE 1
       Radius: 0.01
       Reference Frame: link0/female1
-      Value: true
+      Value: false
     - Class: rviz/Axes
-      Enabled: true
+      Enabled: false
       Length: 0.05
       Name: NODE FEMALE 2
       Radius: 0.01
       Reference Frame: link0/female2
-      Value: true
+      Value: false
     - Class: rviz/Axes
-      Enabled: true
+      Enabled: false
       Length: 0.05
       Name: NODE FEMALE 3
       Radius: 0.01
       Reference Frame: link0/female3
-      Value: true
+      Value: false
     - Alpha: 1
       Class: rviz/RobotModel
       Collision Enabled: false
@@ -159,6 +159,13 @@ Visualization Manager:
       Update Interval: 0
       Value: true
       Visual Enabled: true
+    - Class: rviz/Axes
+      Enabled: true
+      Length: 0.05
+      Name: MATE ANCHOR POSE
+      Radius: 0.01
+      Reference Frame: gbeam_node_1_m2_to_gbeam_link_1_m0
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -183,22 +190,22 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 1.70927
+      Distance: 1.41937
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.06
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: -0.115203
-        Y: -0.864696
-        Z: 0.477264
+        X: -0.10849
+        Y: 0.091941
+        Z: 0.153518
       Name: Current View
       Near Clip Distance: 0.01
-      Pitch: 0.769795
+      Pitch: 0.484795
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 3.13537
+      Yaw: 2.42537
     Saved: ~
 Window Geometry:
   Displays:
