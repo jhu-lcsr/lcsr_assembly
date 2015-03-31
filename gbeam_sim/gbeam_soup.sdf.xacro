@@ -108,7 +108,7 @@
       <!-- Atom Models -->
       <atom_model type="gbeam_link">
         <mate_point type="gbeam" gender="male">
-          <pose>0 0.15 0 0 0 ${pi}</pose>
+          <pose>0 0.15 0 ${pi/2} 0 ${pi}</pose>
         </mate_point>
         <!--<mate_point type="gbeam" gender="male">-->
           <!--<pose>0 -0.100 0 -${pi/2.0} 0 0</pose>-->
@@ -116,12 +116,12 @@
       </atom_model>
 
       <atom_model type="gbeam_node">
-        <mate_point type="gbeam" gender="female">
-          <pose>0 0.025 0 0 0 0</pose>
-        </mate_point>
         <!--<mate_point type="gbeam" gender="female">-->
-          <!--<pose>0 0 -0.05 0 0 ${pi}</pose>-->
+          <!--<pose>0 0.025 0 ${pi/2} 0 0</pose>-->
         <!--</mate_point>-->
+        <mate_point type="gbeam" gender="female">
+          <pose>0 -0.025 0 ${pi/2} 0 ${pi}</pose>
+        </mate_point>
         <!--<mate_point type="gbeam" gender="female">-->
           <!--<pose>0 0.05 0 -${pi/2.0} 0 0</pose>-->
         <!--</mate_point>-->

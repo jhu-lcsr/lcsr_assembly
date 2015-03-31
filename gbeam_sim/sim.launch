@@ -28,6 +28,9 @@
 
   <node if="$(arg rviz)" pkg="rviz" type="rviz" name="rviz" args="-d $(arg rviz_config)" />
 
+  <param name="robot_description" textfile="$(find gbeam_sim)/gazebo_planning_scene.urdf"/>
+  <node name="spawn_urdf" pkg="gazebo_ros" type="spawn_model" args="-param robot_description -urdf -model ghost" />
+
   <group if="$(arg hydra)">
 
     <param if="$(arg rviz)" name="hand_of_god_description" textfile="$(find gbeam_model)/urdf/hand_of_god.urdf"/>

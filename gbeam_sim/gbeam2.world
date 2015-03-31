@@ -77,19 +77,19 @@
         <!-- Atom Models -->
         <atom_model type="gbeam_link">
           <mate_point gender="male" type="gbeam">
-            <pose>0 0.15 0 0 0 3.14159265</pose>
+            <pose>0 0.15 0 1.570796325 0 3.14159265</pose>
           </mate_point>
           <!--<mate_point type="gbeam" gender="male">-->
           <!--<pose>0 -0.100 0 -${pi/2.0} 0 0</pose>-->
           <!--</mate_point>-->
         </atom_model>
         <atom_model type="gbeam_node">
-          <mate_point gender="female" type="gbeam">
-            <pose>0 0.025 0 0 0 0</pose>
-          </mate_point>
           <!--<mate_point type="gbeam" gender="female">-->
-          <!--<pose>0 0 -0.05 0 0 ${pi}</pose>-->
+          <!--<pose>0 0.025 0 ${pi/2} 0 0</pose>-->
           <!--</mate_point>-->
+          <mate_point gender="female" type="gbeam">
+            <pose>0 -0.025 0 1.570796325 0 3.14159265</pose>
+          </mate_point>
           <!--<mate_point type="gbeam" gender="female">-->
           <!--<pose>0 0.05 0 -${pi/2.0} 0 0</pose>-->
           <!--</mate_point>-->

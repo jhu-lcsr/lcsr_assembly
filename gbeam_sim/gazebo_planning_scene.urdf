@@ -1,0 +1,12 @@
+<robot name="ghost">
+  <gazebo>
+    <plugin filename="libgazebo_ros_moveit_planning_scene.so" name="gazebo_ros_moveit_planning_scene">
+      <topicName>/planning_scene</topicName>
+      <sceneName>gbeam_sim</sceneName>
+      <robotName>ghost</robotName>
+      <updatePeriod>0.01</updatePeriod>
+    </plugin>
+  </gazebo>
+
+  <link name="world"/>
+</robot>

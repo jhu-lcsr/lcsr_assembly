@@ -1,12 +1,15 @@
 Panels:
   - Class: rviz/Displays
-    Help Height: 89
+    Help Height: 0
     Name: Displays
     Property Tree Widget:
       Expanded:
         - /TF1/Frames1
+        - /PlanningScene1
+        - /PlanningScene1/Status1
+        - /PlanningScene1/Scene Geometry1
       Splitter Ratio: 0.5
-    Tree Height: 712
+    Tree Height: 201
   - Class: rviz/Selection
     Name: Selection
   - Class: rviz/Tool Properties
@@ -48,96 +51,53 @@ Visualization Manager:
       Reference Frame: <Fixed Frame>
       Value: true
     - Class: rviz/TF
-      Enabled: false
+      Enabled: true
       Frame Timeout: 15
       Frames:
         All Enabled: false
-      Marker Scale: 1
+        gbeam_node_1_m0_to_gbeam_link_1_m0:
+          Value: true
+        gbeam_node_1_m2_to_gbeam_link_1_m0:
+          Value: true
+        gbeam_soup/gbeam_link_1:
+          Value: true
+        gbeam_soup/gbeam_link_1/male_0:
+          Value: true
+        gbeam_soup/gbeam_node_1:
+          Value: true
+        gbeam_soup/gbeam_node_1/female_0:
+          Value: true
+        gbeam_soup/gbeam_node_1/female_1:
+          Value: true
+        gbeam_soup/gbeam_node_1/female_2:
+          Value: true
+        gbeam_soup/gbeam_node_1/female_3:
+          Value: true
+        world:
+          Value: true
+      Marker Scale: 0.1
       Name: TF
       Show Arrows: false
       Show Axes: true
       Show Names: true
       Tree:
-        {}
-      Update Interval: 0
-      Value: false
-    - Alpha: 0.5
-      Class: rviz/RobotModel
-      Collision Enabled: false
-      Enabled: true
-      Links:
-        All Links Enabled: true
-        Expand Joint Details: false
-        Expand Link Details: false
-        Expand Tree: false
-        Link Tree Style: Links in Alphabetic Order
-        gbeam_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-      Name: LINK MODEL
-      Robot Description: gbeam_link_description
-      TF Prefix: /link1
+        world:
+          gbeam_node_1_m0_to_gbeam_link_1_m0:
+            {}
+          gbeam_soup/gbeam_link_1:
+            gbeam_soup/gbeam_link_1/male_0:
+              {}
+          gbeam_soup/gbeam_node_1:
+            gbeam_soup/gbeam_node_1/female_0:
+              {}
+            gbeam_soup/gbeam_node_1/female_1:
+              {}
+            gbeam_soup/gbeam_node_1/female_2:
+              {}
+            gbeam_soup/gbeam_node_1/female_3:
+              {}
       Update Interval: 0
       Value: true
-      Visual Enabled: true
-    - Alpha: 0.5
-      Class: rviz/RobotModel
-      Collision Enabled: false
-      Enabled: true
-      Links:
-        All Links Enabled: true
-        Expand Joint Details: false
-        Expand Link Details: false
-        Expand Tree: false
-        Link Tree Style: Links in Alphabetic Order
-        gbeam_node:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-      Name: NODE MODEL
-      Robot Description: gbeam_node_description
-      TF Prefix: link0
-      Update Interval: 0
-      Value: true
-      Visual Enabled: true
-    - Class: rviz/Axes
-      Enabled: true
-      Length: 0.05
-      Name: LINK MALE 0
-      Radius: 0.01
-      Reference Frame: link1/male0
-      Value: true
-    - Class: rviz/Axes
-      Enabled: false
-      Length: 0.05
-      Name: NODE FEMALE 0
-      Radius: 0.01
-      Reference Frame: link0/female0
-      Value: false
-    - Class: rviz/Axes
-      Enabled: false
-      Length: 0.05
-      Name: NODE FEMALE 1
-      Radius: 0.01
-      Reference Frame: link0/female1
-      Value: false
-    - Class: rviz/Axes
-      Enabled: false
-      Length: 0.05
-      Name: NODE FEMALE 2
-      Radius: 0.01
-      Reference Frame: link0/female2
-      Value: false
-    - Class: rviz/Axes
-      Enabled: false
-      Length: 0.05
-      Name: NODE FEMALE 3
-      Radius: 0.01
-      Reference Frame: link0/female3
-      Value: false
     - Alpha: 1
       Class: rviz/RobotModel
       Collision Enabled: false
@@ -148,23 +108,41 @@ Visualization Manager:
         Expand Link Details: false
         Expand Tree: false
         Link Tree Style: Links in Alphabetic Order
-        hog:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
       Name: HAND OF GOD
       Robot Description: hand_of_god_description
       TF Prefix: ""
       Update Interval: 0
       Value: true
       Visual Enabled: true
-    - Class: rviz/Axes
+    - Class: moveit_rviz_plugin/PlanningScene
       Enabled: true
-      Length: 0.05
-      Name: MATE ANCHOR POSE
-      Radius: 0.01
-      Reference Frame: gbeam_node_1_m2_to_gbeam_link_1_m0
+      Move Group Namespace: ""
+      Name: PlanningScene
+      Planning Scene Topic: /planning_scene
+      Robot Description: robot_description
+      Scene Geometry:
+        Scene Alpha: 0.9
+        Scene Color: 50; 230; 50
+        Scene Display Time: 0.2
+        Show Scene Geometry: true
+        Voxel Coloring: Z-Axis
+        Voxel Rendering: Occupied Voxels
+      Scene Robot:
+        Attached Body Color: 150; 50; 150
+        Links:
+          All Links Enabled:
+            {}
+          Expand Joint Details: false
+          Expand Link Details: false
+          Expand Tree: false
+          Link Tree Style: Links in Alphabetic Order
+          world:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+        Robot Alpha: 0.5
+        Show Robot Collision: false
+        Show Robot Visual: true
       Value: true
   Enabled: true
   Global Options:
@@ -190,30 +168,30 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 1.41937
+      Distance: 0.402304
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.06
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: -0.10849
-        Y: 0.091941
-        Z: 0.153518
+        X: -0.093213
+        Y: -0.194004
+        Z: 0.0237266
       Name: Current View
       Near Clip Distance: 0.01
-      Pitch: 0.484795
+      Pitch: 0.659797
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 2.42537
+      Yaw: 6.27633
     Saved: ~
 Window Geometry:
   Displays:
     collapsed: true
-  Height: 1031
+  Height: 340
   Hide Left Dock: true
   Hide Right Dock: true
-  QMainWindow State: 000000ff00000000fd0000000400000000000002af00000362fc0200000008fb0000001200530065006c0065006300740069006f006e00000001e10000009b0000006300fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afc00000043000003620000000000fffffffa000000000100000002fb0000001e004d006f00740069006f006e00200050006c0061006e006e0069006e00670100000000ffffffff0000000000000000fb000000100044006900730070006c0061007900730000000000000002980000010f00fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261000000010000010f000002cbfc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a005600690065007700730000000043000002cb000000af00fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e10000019700000003000007800000003efc0100000002fb0000000800540069006d00650100000000000007800000028200fffffffb0000000800540069006d00650100000000000004500000000000000000000007800000036200000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd00000004000000000000010f0000010afc0200000008fb0000001200530065006c0065006300740069006f006e00000001e10000009b0000006700fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afc000000410000010a0000000000fffffffa000000000100000002fb0000001e004d006f00740069006f006e00200050006c0061006e006e0069006e00670100000000ffffffff0000000000000000fb000000100044006900730070006c0061007900730000000000000002980000010f00fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261000000010000010f000002cbfc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a005600690065007700730000000043000002cb000000b300fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e10000019700000003000005560000003efc0100000002fb0000000800540069006d00650000000000000005560000026f00fffffffb0000000800540069006d00650100000000000004500000000000000000000002a1000000f500000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Selection:
     collapsed: false
   Time:
@@ -222,6 +200,6 @@ Window Geometry:
     collapsed: false
   Views:
     collapsed: true
-  Width: 1920
-  X: 0
-  Y: 25
+  Width: 673
+  X: 689
+  Y: 390

@@ -20,13 +20,15 @@
 /************************************************************************************/
 
 // helper function to create names for TF
-static inline std::string getNameTF(const std::string &ns, const std::string &joint) {
+static inline std::string getNameTF(const std::string &ns, const std::string &joint)
+{
   std::stringstream ss;
   ss << ns << "/" << joint;
   return ss.str();
 }
 
-static void to_kdl(const sdf::ElementPtr pose_elem, KDL::Frame &frame)
+// Convert pose types
+static void to_kdl(const sdf::ElementPtr &pose_elem, KDL::Frame &frame)
 {
   sdf::Pose pose;
   pose_elem->GetValue()->Get(pose);
@@ -41,19 +43,28 @@ static void to_kdl(const sdf::ElementPtr pose_elem, KDL::Frame &frame)
   //gzwarn<<"string of joint pose: "<<pose_str<<std::endl<<frame<<std::endl;
 }
 
-static void to_tf(const gazebo::math::Pose &pose, tf::Transform &frame) {
-  frame.setRotation( tf::Quaternion(pose.rot.x,
-                                        pose.rot.y,
-                                        pose.rot.z,
-                                        pose.rot.w) );
-  frame.setOrigin( tf::Vector3(pose.pos.x, pose.pos.y, pose.pos.z) );
-}
-
 static void to_kdl(const gazebo::math::Pose &pose, KDL::Frame &frame)
 {
   frame = KDL::Frame(
       KDL::Rotation::Quaternion(pose.rot.x, pose.rot.y, pose.rot.z, pose.rot.w),
       KDL::Vector(pose.pos.x, pose.pos.y, pose.pos.z));
+}
+
+static void to_kdl(const gazebo::math::Vector3 &vector3, KDL::Vector &vector)
+{
+  vector.data[0] = vector3.x;
+  vector.data[1] = vector3.y;
+  vector.data[2] = vector3.z;
+}
+
+static void to_tf(const gazebo::math::Pose &pose, tf::Transform &frame)
+{
+  frame.setRotation( tf::Quaternion(
+          pose.rot.x,
+          pose.rot.y,
+          pose.rot.z,
+          pose.rot.w));
+  frame.setOrigin( tf::Vector3(pose.pos.x, pose.pos.y, pose.pos.z) );
 }
 
 static void to_gazebo(const KDL::Frame &frame, gazebo::math::Pose &pose)
@@ -64,6 +75,7 @@ static void to_gazebo(const KDL::Frame &frame, gazebo::math::Pose &pose)
   frame.M.GetQuaternion(pose.rot.x, pose.rot.y, pose.rot.z, pose.rot.w);
 }
 
+// Complete an SDF xml snippet into a model
 static std::string complete_sdf(const std::string &incomplete_sdf)
 {
   return std::string("<sdf version=\"1.4\">\n<model name=\"template\">\n" + incomplete_sdf + "\n</model>\n</sdf>");
@@ -106,9 +118,9 @@ namespace assembly_sim
     joint_sdf = boost::make_shared<sdf::Element>();
     joint_sdf->Copy(mate_model->joint_template);
     joint_sdf->GetAttribute("name")->Set(
-        str( boost::format("%s_m%0d_to_%s_m%0d") 
+        str( boost::format("%s_m%0d_to_%s_m%0d")
              % female_atom->link->GetName()
-             % female_mate_point_model->id 
+             % female_mate_point_model->id
              % male_atom->link->GetName()
              % male_mate_point_model->id));
     joint_sdf->GetElement("parent")->GetValue()->Set(female_atom->link->GetName());
@@ -120,10 +132,12 @@ namespace assembly_sim
 
     gzwarn<<"joint sdf:\n\n"<<joint_sdf->ToString(">>")<<std::endl;
 
-    // Construct the actual link between these two atoms
+    // Construct the actual joint between these two atom links
     joint = gazebo_model->GetWorld()->GetPhysicsEngine()->CreateJoint(joint_type, gazebo_model);
     joint->SetModel(gazebo_model);
     joint->Load(joint_sdf);
+
+    // Joints should initially be detached
     joint->Detach();
   }
 
@@ -278,7 +292,7 @@ namespace assembly_sim
           {
             mate_point_model = boost::make_shared<MatePointModel>();
             mate_point_model->model = mate_model;
-            mate_point_model->pose = (*pose_it) * base_pose;
+            mate_point_model->pose = base_pose * (*pose_it);
             mate_point_model->id =
               atom_model->female_mate_points.size()
               + atom_model->male_mate_points.size();
@@ -369,84 +383,90 @@ namespace assembly_sim
 
     static tf::TransformBroadcaster br;
 
-    unsigned int link_idx = 0;
     // Iterate over all atoms
     for(std::vector<AtomPtr>::iterator it_fa = atoms_.begin();
         it_fa != atoms_.end();
-        ++it_fa,++link_idx)
+        ++it_fa)
     {
       AtomPtr female_atom = *it_fa;
-      //gzwarn<<" - female: "<<female_atom->link->GetName()<<std::endl;
 
+      // Get the female atom frame
       KDL::Frame female_atom_frame;
       to_kdl(female_atom->link->GetWorldPose(), female_atom_frame);
 
-      std::stringstream ss;
-      ss << "link" << link_idx;
-      std::string link_name = ss.str();
-      ss << "/" << female_atom->model->type;
-      std::string body_name = ss.str();
+      // Construct some names for use with TF
+      const std::string body_name = str(
+          boost::format("%s/%s")
+          % model_->GetName()
+          % female_atom->link->GetName());
 
-      if(broadcast_tf_) {
-        std::stringstream ss;
+      // Broadcast TF frames for this link
+      if(broadcast_tf_)
+      {
+        // Broadcast a tf frame for this link
         tf::Transform tf_frame;
         to_tf(female_atom->link->GetWorldPose(), tf_frame);
-        br.sendTransform(tf::StampedTransform(tf_frame,
-                                              ros::Time::now(),
-                                              tf_world_frame_,
-                                              body_name));
-      }
+        br.sendTransform(
+            tf::StampedTransform(
+                tf_frame,
+                ros::Time::now(),
+                tf_world_frame_,
+                body_name));
 
-
-      // print out all mate points
-      // done in a separate loop so we don't publish too many things...
-      // this would be very wasteful if we buried it in the innermost for-loop
-      if(broadcast_tf_) {
-        unsigned int male_idx = 0;
+        // Broadcast all male mate points for this atom
         for(std::vector<MatePointPtr>::iterator it_mmp = female_atom->male_mate_points.begin();
             it_mmp != female_atom->male_mate_points.end();
-            ++it_mmp,++male_idx)
+            ++it_mmp)
         {
           MatePointPtr male_mate_point = *it_mmp;
 
-          std::stringstream ss;
-          ss << link_name << "/male" << male_idx;
+          const std::string male_mate_point_name = str(
+              boost::format("%s/male_%d")
+              % body_name
+              % male_mate_point->model->id);
 
           tf::Transform tf_frame;
           tf::poseKDLToTF(male_mate_point->model->pose,tf_frame);
-          br.sendTransform(tf::StampedTransform(tf_frame,
-                                                ros::Time::now(),
-                                                body_name,
-                                                ss.str()));
+          br.sendTransform(
+              tf::StampedTransform(
+                  tf_frame,
+                  ros::Time::now(),
+                  body_name,
+                  male_mate_point_name));
+        }
+
+        // Broadcast all female mate points for this atom
+        for(std::vector<MatePointPtr>::iterator it_fmp = female_atom->female_mate_points.begin();
+            it_fmp != female_atom->female_mate_points.end();
+            ++it_fmp)
+        {
+          MatePointPtr female_mate_point = *it_fmp;
+
+          const std::string female_mate_point_name = str(
+              boost::format("%s/female_%d")
+              % body_name
+              % female_mate_point->model->id);
+
+          tf::Transform tf_frame;
+          tf::poseKDLToTF(female_mate_point->model->pose, tf_frame);
+          br.sendTransform(
+              tf::StampedTransform(
+                  tf_frame,
+                  ros::Time::now(),
+                  body_name,
+                  female_mate_point_name));
         }
       }
 
-      unsigned int female_idx = 0;
       // Iterate over all female mate points of female link
       for(std::vector<MatePointPtr>::iterator it_fmp = female_atom->female_mate_points.begin();
           it_fmp != female_atom->female_mate_points.end();
-          ++it_fmp,++female_idx)
+          ++it_fmp)
       {
         MatePointPtr female_mate_point = *it_fmp;
-        if(!female_mate_point->model->model) {
-          gzerr<<"MATE POINT UNDEFINED"<<std::endl;
-          return;
-        }
-        //gzwarn<<" -- female mate: "<<female_mate_point->model->model->type<<std::endl;
 
-        // Compute the pose of the female mate frame
+        // Compute the world pose of the female mate frame
         KDL::Frame female_mate_frame = female_atom_frame * female_mate_point->model->pose;
-
-        if(broadcast_tf_) {
-          std::stringstream ss;
-          ss << link_name << "/female" << female_idx;
-          tf::Transform tf_frame;
-          tf::poseKDLToTF(female_mate_point->model->pose,tf_frame);
-          br.sendTransform(tf::StampedTransform(tf_frame,
-                                                ros::Time::now(),
-                                                body_name,
-                                                ss.str()));
-        }
 
         // Iterate over all other atoms
         for(std::vector<AtomPtr>::iterator it_ma = atoms_.begin();
@@ -454,11 +474,12 @@ namespace assembly_sim
             ++it_ma)
         {
           AtomPtr male_atom = *it_ma;
-          KDL::Frame male_atom_frame;
-          to_kdl(male_atom->link->GetWorldPose(), male_atom_frame);
 
           // You can't mate with yourself
           if(male_atom == female_atom) { continue; }
+
+          KDL::Frame male_atom_frame;
+          to_kdl(male_atom->link->GetWorldPose(), male_atom_frame);
 
           // Iterate over all male mate points of male link
           for(std::vector<MatePointPtr>::iterator it_mmp = male_atom->male_mate_points.begin();
@@ -470,7 +491,7 @@ namespace assembly_sim
             // Skip if the mates are incompatible
             if(female_mate_point->model->model->type != male_mate_point->model->model->type) { continue; }
 
-            // Compute the pose of the male mate frame
+            // Compute the world pose of the male mate frame
             KDL::Frame male_mate_frame = male_atom_frame * male_mate_point->model->pose;
 
             // Get the mate between these two mate points
@@ -529,20 +550,36 @@ namespace assembly_sim
 
                   // attach joint
                   mate->joint->Attach(female_atom->link, male_atom->link);
-                  KDL::Frame tmp;
-                  to_kdl(mate->joint->GetInitialAnchorPose(),tmp);
-                  gzwarn<<" --- joint pose: "<<std::endl<<tmp<<std::endl;
+                  gazebo::math::Pose anchor_pose = mate->joint->GetInitialAnchorPose();
+                  mate->joint->SetAnchor(0, anchor_pose.pos);
+
+                  KDL::Frame anchor_frame;
+                  to_kdl(anchor_pose, anchor_frame);
+                  gzwarn<<" --- joint pose: "<<std::endl<<anchor_frame<<std::endl;
+
                   //mate->joint->Init();
                 }
               }
 
+              // Broadcast the TF frame for this joint
               if (broadcast_tf_ and mate->joint->GetParent() and mate->joint->GetChild()) {
-                tf::Transform tf_frame;
-                to_tf(male_atom->link->GetWorldPose()*mate->joint->GetInitialAnchorPose(),tf_frame);
-                br.sendTransform(tf::StampedTransform(tf_frame,
-                                                ros::Time::now(),
-                                                tf_world_frame_,
-                                                mate->joint->GetName()));
+                tf::Transform tf_joint_frame;
+                //to_kdl(male_atom->link->GetWorldPose() * mate->joint->GetInitialAnchorPose(), tf_frame);
+                //to_tf(mate->joint->GetWorldPose(), tf_frame);
+
+                gazebo::math::Vector3 anchor = mate->joint->GetAnchor(0);
+
+                KDL::Frame joint_frame = KDL::Frame(
+                    male_mate_frame.M,
+                    KDL::Vector(anchor.x, anchor.y, anchor.z));
+                tf::poseKDLToTF(joint_frame, tf_joint_frame);
+
+                br.sendTransform(
+                    tf::StampedTransform(
+                        tf_joint_frame,
+                        ros::Time::now(),
+                        tf_world_frame_,
+                        mate->joint->GetName()));
               }
 
             } else {
@@ -553,56 +590,6 @@ namespace assembly_sim
       }
     }
   }
-
-#if 0
-  void AssemblySoup::instantiate_atom(const AtomModelPtr &atom_model, const sdf::Pose &pose)
-  {
-    AtomPtr atom = boost::make_shared<Atom>();
-
-    // Fill out the link template with the instantiated information
-    sdf::ElementPtr link_template(new sdf::Element());
-    link_template->Copy(atom_model->link_template);
-
-    link_template->GetAttribute("name")->Set(str(boost::format("%s_%0d") % atom_model->type % atom_id_counter_++));
-    link_template->GetElement("pose")->GetValue()->Set(pose);
-
-    gzwarn<<"instantiate: "<<link_template->ToString(">> ")<<std::endl;
-
-
-    // Create a new link owned by this model
-    sdf_->InsertElement(link_template);
-    atom->link =
-      model_->GetWorld()->GetPhysicsEngine()->CreateLink(
-          boost::static_pointer_cast<gazebo::physics::Model>(model_));
-
-    // Load the link information
-    atom->link->Load(link_template);
-    atom->link->Init();
-    atom->link->SetEnabled(true);
-    model_->GetLinks().push_back(atom->link);
-
-    atoms_.push_back(atom);
-  }
-#endif
-
-#if 0
-  void mate_atoms(gazebo::physics::LinkPtr female, gazebo::physics::LinkPtr male) {
-
-    // Instantiate joints for each female mate
-    for(std::vector<Mate>::const_iterator mate=atom.female_mates.begin();
-        mate != atom.female_mates.end();
-        ++mate)
-    {
-      gazebo::physics::JointPtr joint(new gazebo::physics::Joint());
-
-      joint->Load(mate->joint_template);
-      joint->SetName(str(boost::format("%s_%0d_%s_%0d") % atom.type % n_atoms % mate->type % n_mates++));
-
-      link->AddChildJoint(joint);
-    }
-
-  }
-#endif
 
   // Register this plugin with the simulator
   GZ_REGISTER_MODEL_PLUGIN(AssemblySoup)

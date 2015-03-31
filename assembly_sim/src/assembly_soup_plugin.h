@@ -143,9 +143,6 @@ namespace assembly_sim {
       // for broadcasting coordinate transforms
       bool broadcast_tf_;
       std::string tf_world_frame_;
-
-      //void instantiate_mate(const Mate &mate);
-      //void instantiate_atom(const AtomModelPtr &atom, const sdf::Pose &pose);
   };
 }
 
