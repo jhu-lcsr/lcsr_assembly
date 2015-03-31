@@ -4,7 +4,7 @@ project(assembly_sim)
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
-find_package(catkin REQUIRED)
+find_package(catkin COMPONENTS tf tf_conversions REQUIRED)
 find_package(gazebo REQUIRED)
 find_package(orocos_kdl REQUIRED)
 find_package(eigen REQUIRED)
@@ -79,7 +79,7 @@ find_package(Boost COMPONENTS thread REQUIRED)
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES assembly_sim
-#  CATKIN_DEPENDS other_catkin_pkg
+  CATKIN_DEPENDS tf tf_conversions
 #  DEPENDS system_lib
 )
 
@@ -107,6 +107,7 @@ add_library(assembly_soup_plugin
 target_link_libraries(assembly_soup_plugin
   ${GAZEBO_LIBRARY}
   ${orocos_kdl_LIBRARIES}
+  ${catkin_LIBRARIES}
 )
 
 ## Specify additional locations of header files

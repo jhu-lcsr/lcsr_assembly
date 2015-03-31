@@ -140,6 +140,10 @@ namespace assembly_sim {
       typedef boost::unordered_map<MatePointPtr, mate_point_map_t> mate_table_t;
       mate_table_t mate_table_;
 
+      // for broadcasting coordinate transforms
+      bool broadcast_tf_;
+      std::string tf_world_frame_;
+
       //void instantiate_mate(const Mate &mate);
       //void instantiate_atom(const AtomModelPtr &atom, const sdf::Pose &pose);
   };
