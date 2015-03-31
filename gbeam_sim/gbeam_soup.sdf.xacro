@@ -70,7 +70,7 @@
   <model name="gbeam_soup">
     <plugin name="assembly_soup" filename="libassembly_soup_plugin.so">
 
-      <trans_mate_err>0.2</trans_mate_err>
+      <trans_mate_err>0.01</trans_mate_err>
       <rot_mate_err>0.1</rot_mate_err>
       <tf_world_frame>world</tf_world_frame>
 
@@ -89,16 +89,16 @@
           <child>gbeam_node</child>
           <axis>
             <xyz>1 0 0</xyz>
-            <limit><lower>0</lower><upper>0</upper></limit>
+            <limit><lower>-0.01</lower><upper>0.01</upper></limit>
           </axis>
           <physics>
             <ode>
               <cfm_damping>true</cfm_damping>
-              <cfm>0.2</cfm>
+              <cfm>0.1</cfm>
               <erp>0.05</erp>
               <limit>
                 <cfm>0.1</cfm>
-                <erp>0.2</erp>
+                <erp>0.5</erp>
               </limit>
             </ode>
           </physics>
