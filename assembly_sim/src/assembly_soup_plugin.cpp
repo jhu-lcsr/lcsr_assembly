@@ -115,7 +115,7 @@ namespace assembly_sim
     joint_sdf->GetElement("child")->GetValue()->Set(male_atom->link->GetName());
 
     gazebo::math::Pose pose;
-    to_gazebo(female_mate_point_model->pose, pose);
+    to_gazebo(male_mate_point_model->pose, pose);
     joint_sdf->GetElement("pose")->GetValue()->Set(pose);
 
     gzwarn<<"joint sdf:\n\n"<<joint_sdf->ToString(">>")<<std::endl;
@@ -538,10 +538,10 @@ namespace assembly_sim
 
               if (broadcast_tf_ and mate->joint->GetParent() and mate->joint->GetChild()) {
                 tf::Transform tf_frame;
-                to_tf(mate->joint->GetInitialAnchorPose(),tf_frame);
+                to_tf(male_atom->link->GetWorldPose()*mate->joint->GetInitialAnchorPose(),tf_frame);
                 br.sendTransform(tf::StampedTransform(tf_frame,
                                                 ros::Time::now(),
-                                                body_name,
+                                                tf_world_frame_,
                                                 mate->joint->GetName()));
               }
 
