@@ -8,18 +8,45 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/format.hpp>
 
+#include <tf/transform_broadcaster.h>
+#include <tf_conversions/tf_kdl.h>
+
 #include <kdl/frames_io.hpp>
 
 #include "assembly_soup_plugin.h"
+
+/************************************************************************************/
+/*                                Helper Functions                                  */
+/************************************************************************************/
+
+// helper function to create names for TF
+static inline std::string getNameTF(const std::string &ns, const std::string &joint) {
+  std::stringstream ss;
+  ss << ns << "/" << joint;
+  return ss.str();
+}
 
 static void to_kdl(const sdf::ElementPtr pose_elem, KDL::Frame &frame)
 {
   sdf::Pose pose;
   pose_elem->GetValue()->Get(pose);
 
+  //std::string pose_str;
+  //pose_elem->GetValue()->Get(pose_str);
+
   frame = KDL::Frame(
       KDL::Rotation::Quaternion(pose.rot.x, pose.rot.y, pose.rot.z, pose.rot.w),
       KDL::Vector(pose.pos.x, pose.pos.y, pose.pos.z));
+
+  //gzwarn<<"string of joint pose: "<<pose_str<<std::endl<<frame<<std::endl;
+}
+
+static void to_tf(const gazebo::math::Pose &pose, tf::Transform &frame) {
+  frame.setRotation( tf::Quaternion(pose.rot.x,
+                                        pose.rot.y,
+                                        pose.rot.z,
+                                        pose.rot.w) );
+  frame.setOrigin( tf::Vector3(pose.pos.x, pose.pos.y, pose.pos.z) );
 }
 
 static void to_kdl(const gazebo::math::Pose &pose, KDL::Frame &frame)
@@ -41,6 +68,11 @@ static std::string complete_sdf(const std::string &incomplete_sdf)
 {
   return std::string("<sdf version=\"1.4\">\n<model name=\"template\">\n" + incomplete_sdf + "\n</model>\n</sdf>");
 }
+
+
+/************************************************************************************/
+/*                                Assembly Sim                                      */
+/************************************************************************************/
 
 namespace assembly_sim
 {
@@ -97,7 +129,11 @@ namespace assembly_sim
 
   AssemblySoup::AssemblySoup() :
     mate_id_counter_(0),
-    atom_id_counter_(0)
+    atom_id_counter_(0),
+    max_trans_err_(0.01),
+    max_rot_err_(0.1),
+    tf_world_frame_("world"),
+    broadcast_tf_(false)
   {
 
   }
@@ -107,6 +143,30 @@ namespace assembly_sim
     // Store the pointer to the model
     this->model_ = _parent;
     this->sdf_ = _sdf;
+
+
+    // store mate point error
+    // from configuration in files
+    sdf::ElementPtr trans_err_elem = _sdf->GetElement("trans_mate_err");
+    if (trans_err_elem) {
+      double trans_mate_err;
+      bool _err_res = trans_err_elem->GetValue()->Get(trans_mate_err);
+      gzwarn<<"Setting mate translational error="<<trans_mate_err<<std::endl;
+      this->max_trans_err_ = trans_mate_err;
+    }
+    sdf::ElementPtr rot_err_elem = _sdf->GetElement("rot_mate_err");
+    if (rot_err_elem) {
+      double rot_mate_err;
+      bool _err_res = rot_err_elem->GetValue()->Get(rot_mate_err);
+      gzwarn<<"Setting mate rotational error="<<rot_mate_err<<std::endl;
+      this->max_rot_err_ = rot_mate_err;
+    }
+    sdf::ElementPtr broadcast_elem = _sdf->GetElement("tf_world_frame");
+    if (broadcast_elem) {
+      broadcast_elem->GetValue()->Get(tf_world_frame_);
+      gzwarn<<"Broadcasting TF frames for joints relative to \""<<tf_world_frame_<<"\""<<std::endl;
+      broadcast_tf_ = true;
+    }
 
     // Get the description of the mates in this soup
     sdf::ElementPtr mate_elem = _sdf->GetElement("mate_model");
@@ -303,12 +363,17 @@ namespace assembly_sim
   }
 
   // Called by the world update start event
+  // This is where the logic that connects and updates joints needs to happen
   void AssemblySoup::OnUpdate(const gazebo::common::UpdateInfo & /*_info*/)
   {
+
+    static tf::TransformBroadcaster br;
+
+    unsigned int link_idx = 0;
     // Iterate over all atoms
     for(std::vector<AtomPtr>::iterator it_fa = atoms_.begin();
         it_fa != atoms_.end();
-        ++it_fa)
+        ++it_fa,++link_idx)
     {
       AtomPtr female_atom = *it_fa;
       //gzwarn<<" - female: "<<female_atom->link->GetName()<<std::endl;
@@ -316,10 +381,51 @@ namespace assembly_sim
       KDL::Frame female_atom_frame;
       to_kdl(female_atom->link->GetWorldPose(), female_atom_frame);
 
+      std::stringstream ss;
+      ss << "link" << link_idx;
+      std::string link_name = ss.str();
+      ss << "/" << female_atom->model->type;
+      std::string body_name = ss.str();
+
+      if(broadcast_tf_) {
+        std::stringstream ss;
+        tf::Transform tf_frame;
+        to_tf(female_atom->link->GetWorldPose(), tf_frame);
+        br.sendTransform(tf::StampedTransform(tf_frame,
+                                              ros::Time::now(),
+                                              tf_world_frame_,
+                                              body_name));
+      }
+
+
+      // print out all mate points
+      // done in a separate loop so we don't publish too many things...
+      // this would be very wasteful if we buried it in the innermost for-loop
+      if(broadcast_tf_) {
+        unsigned int male_idx = 0;
+        for(std::vector<MatePointPtr>::iterator it_mmp = female_atom->male_mate_points.begin();
+            it_mmp != female_atom->male_mate_points.end();
+            ++it_mmp,++male_idx)
+        {
+          MatePointPtr male_mate_point = *it_mmp;
+
+          std::stringstream ss;
+          ss << link_name << "/male" << male_idx;
+
+          tf::Transform tf_frame;
+          tf::poseKDLToTF(male_mate_point->model->pose,tf_frame);
+          br.sendTransform(tf::StampedTransform(tf_frame,
+                                                ros::Time::now(),
+                                                body_name,
+                                                ss.str()));
+        }
+      }
+
+      unsigned int female_idx = 0;
       // Iterate over all female mate points of female link
       for(std::vector<MatePointPtr>::iterator it_fmp = female_atom->female_mate_points.begin();
           it_fmp != female_atom->female_mate_points.end();
-          ++it_fmp)
+          ++it_fmp,++female_idx)
       {
         MatePointPtr female_mate_point = *it_fmp;
         if(!female_mate_point->model->model) {
@@ -328,8 +434,19 @@ namespace assembly_sim
         }
         //gzwarn<<" -- female mate: "<<female_mate_point->model->model->type<<std::endl;
 
-        // Compute the pose of the male mate frame
+        // Compute the pose of the female mate frame
         KDL::Frame female_mate_frame = female_atom_frame * female_mate_point->model->pose;
+
+        if(broadcast_tf_) {
+          std::stringstream ss;
+          ss << link_name << "/female" << female_idx;
+          tf::Transform tf_frame;
+          tf::poseKDLToTF(female_mate_point->model->pose,tf_frame);
+          br.sendTransform(tf::StampedTransform(tf_frame,
+                                                ros::Time::now(),
+                                                body_name,
+                                                ss.str()));
+        }
 
         // Iterate over all other atoms
         for(std::vector<AtomPtr>::iterator it_ma = atoms_.begin();
@@ -404,16 +521,30 @@ namespace assembly_sim
                 }
               } else {
                 //gzwarn<<"Parts are not mated!"<<std::endl;
-                if(twist_err.vel.Norm() < 0.01 and twist_err.rot.Norm() < 0.1) {
+                if(twist_err.vel.Norm() < max_trans_err_ and twist_err.rot.Norm() < max_rot_err_) {
                   gzwarn<<" --- from "<<female_atom->link->GetName()<<" -> "<<male_atom->link->GetName()<<std::endl;
-                  gzwarn<<" --- twist err: "<<twist_err.vel<<std::endl;
+                  gzwarn<<" --- trans twist err: "<<twist_err.vel<<std::endl;
+                  gzwarn<<" --- rot twist err: "<<twist_err.rot<<std::endl;
                   gzwarn<<" --- mating."<<std::endl;
 
                   // attach joint
                   mate->joint->Attach(female_atom->link, male_atom->link);
+                  KDL::Frame tmp;
+                  to_kdl(mate->joint->GetInitialAnchorPose(),tmp);
+                  gzwarn<<" --- joint pose: "<<std::endl<<tmp<<std::endl;
                   //mate->joint->Init();
                 }
               }
+
+              if (broadcast_tf_ and mate->joint->GetParent() and mate->joint->GetChild()) {
+                tf::Transform tf_frame;
+                to_tf(male_atom->link->GetWorldPose()*mate->joint->GetInitialAnchorPose(),tf_frame);
+                br.sendTransform(tf::StampedTransform(tf_frame,
+                                                ros::Time::now(),
+                                                tf_world_frame_,
+                                                mate->joint->GetName()));
+              }
+
             } else {
               //gzwarn<<"No joint for mate from "<<female_atom->link->GetName()<<" -> "<<male_atom->link->GetName()<<std::endl;
             }

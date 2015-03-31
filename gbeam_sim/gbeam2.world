@@ -13,8 +13,35 @@
     <include>
       <uri>model://ground_plane</uri>
     </include>
+    <model name="hog">
+      <plugin filename="libgazebo_ros_hand_of_god.so" name="hand_of_god">
+        <frameId>hydra_right_grab</frameId>
+        <linkName>hog</linkName>
+      </plugin>
+      <link name="hog">
+        <self_collide>0</self_collide>
+        <pose>0 0 1 0 0 0</pose>
+        <collision name="collision">
+          <geometry>
+            <sphere>
+              <radius>0.025</radius>
+            </sphere>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <sphere>
+              <radius>0.025</radius>
+            </sphere>
+          </geometry>
+        </visual>
+      </link>
+    </model>
     <model name="gbeam_soup">
       <plugin filename="libassembly_soup_plugin.so" name="assembly_soup">
+        <trans_mate_err>0.01</trans_mate_err>
+        <rot_mate_err>0.1</rot_mate_err>
+        <tf_world_frame>world</tf_world_frame>
         <!-- Mate Models -->
         <mate_model type="gbeam">
           <!-- planar shear-supporting magnetic mate
@@ -24,24 +51,24 @@
             <rot>1 1 4</rot>
           </symmetry>
           <joint name="gbeam" type="revolute">
-            <pose>0 0.5 0 0 1.570796325 0</pose>
+            <pose>0 0.025 0 0 1.570796325 0</pose>
             <parent>gbeam_link</parent>
             <child>gbeam_node</child>
             <axis>
               <xyz>1 0 0</xyz>
               <limit>
-                <lower>0</lower>
-                <upper>0</upper>
+                <lower>-0.01</lower>
+                <upper>0.01</upper>
               </limit>
             </axis>
             <physics>
               <ode>
-                <cfm_damping>1</cfm_damping>
+                <cfm_damping>true</cfm_damping>
                 <cfm>0.1</cfm>
-                <erp>0.1</erp>
+                <erp>0.05</erp>
                 <limit>
                   <cfm>0.1</cfm>
-                  <erp>0.1</erp>
+                  <erp>0.5</erp>
                 </limit>
               </ode>
             </physics>
@@ -50,7 +77,7 @@
         <!-- Atom Models -->
         <atom_model type="gbeam_link">
           <mate_point gender="male" type="gbeam">
-            <pose>0 0.100 0 1.570796325 0 0</pose>
+            <pose>0 0.15 0 0 0 3.14159265</pose>
           </mate_point>
           <!--<mate_point type="gbeam" gender="male">-->
           <!--<pose>0 -0.100 0 -${pi/2.0} 0 0</pose>-->
@@ -58,7 +85,7 @@
         </atom_model>
         <atom_model type="gbeam_node">
           <mate_point gender="female" type="gbeam">
-            <pose>0 0 0.5 0 0 0</pose>
+            <pose>0 0.025 0 0 0 0</pose>
           </mate_point>
           <!--<mate_point type="gbeam" gender="female">-->
           <!--<pose>0 0 -0.05 0 0 ${pi}</pose>-->
@@ -78,7 +105,7 @@
         </atom_model>
       </plugin>
       <link name="gbeam_node_1">
-        <pose>0 0 0 0 0 0</pose>
+        <pose>0 0.3 0 0 0 0</pose>
         <self_collide>1</self_collide>
         <inertial>
           <mass>0.2</mass>
@@ -111,7 +138,7 @@
       <!--<xacro:gbeam_node suffix="_4" pose="0 0 0.3 0 0 0"/>-->
       <!--<xacro:gbeam_node suffix="_5" pose="0 0 0.4 0 0 0"/>-->
       <link name="gbeam_link_1">
-        <pose>0 0.3 0 0 0 0</pose>
+        <pose>0 0 0 0 0 0</pose>
         <self_collide>1</self_collide>
         <inertial>
           <mass>0.3</mass>

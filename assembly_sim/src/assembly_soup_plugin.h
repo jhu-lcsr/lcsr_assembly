@@ -128,6 +128,9 @@ namespace assembly_sim {
       size_t mate_id_counter_;
       size_t atom_id_counter_;
 
+      double max_trans_err_;
+      double max_rot_err_;
+
       std::map<std::string, MateModelPtr> mate_models_;
       std::map<std::string, AtomModelPtr> atom_models_;
 
@@ -136,6 +139,10 @@ namespace assembly_sim {
       typedef boost::unordered_map<MatePointPtr, MatePtr> mate_point_map_t;
       typedef boost::unordered_map<MatePointPtr, mate_point_map_t> mate_table_t;
       mate_table_t mate_table_;
+
+      // for broadcasting coordinate transforms
+      bool broadcast_tf_;
+      std::string tf_world_frame_;
 
       //void instantiate_mate(const Mate &mate);
       //void instantiate_atom(const AtomModelPtr &atom, const sdf::Pose &pose);
