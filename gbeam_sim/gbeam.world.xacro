@@ -17,7 +17,7 @@
       <plugin name='hand_of_god' filename="libgazebo_ros_hand_of_god.so">
         <frameId>hog</frameId>
         <linkName>hog</linkName>
-        <kl>10000</kl>
+        <kl>400</kl>
         <ka>200</ka>
       </plugin>
 
