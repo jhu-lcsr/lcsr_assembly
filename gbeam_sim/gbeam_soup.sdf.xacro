@@ -28,6 +28,12 @@
               <mu2>0.7</mu2>
             </ode>
           </friction>
+          <contact>
+            <ode>
+              <soft_cfm>0.01</soft_cfm>
+              <soft_erp>0.05</soft_erp>
+            </ode>
+          </contact>
         </surface>
       </collision>
 
@@ -66,6 +72,12 @@
               <mu2>0.5</mu2>
             </ode>
           </friction>
+          <contact>
+            <ode>
+              <soft_cfm>0.01</soft_cfm>
+              <soft_erp>0.05</soft_erp>
+            </ode>
+          </contact>          
         </surface>
       </collision>
 
@@ -100,7 +112,7 @@
         </symmetry>
 
         <attach_threshold>
-          <linear>0.01</linear>
+          <linear>0.004</linear>
           <angular>0.1</angular>
         </attach_threshold>
 
