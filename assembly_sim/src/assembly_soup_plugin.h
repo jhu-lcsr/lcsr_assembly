@@ -38,6 +38,14 @@ namespace assembly_sim {
     // Transforms from the base mate frame to alternative frames
     std::vector<KDL::Frame> symmetries;
 
+    // Threshold for attaching a mate
+    double attach_threshold_linear;
+    double attach_threshold_angular;
+
+    // Threshold for detaching a mate
+    double detach_threshold_linear;
+    double detach_threshold_angular;
+
     // The sdf template for the joint to be created
     boost::shared_ptr<sdf::SDF> joint_template_sdf;
     sdf::ElementPtr joint_template;

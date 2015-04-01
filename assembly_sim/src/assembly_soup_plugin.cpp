@@ -155,8 +155,6 @@ namespace assembly_sim
   AssemblySoup::AssemblySoup() :
     mate_id_counter_(0),
     atom_id_counter_(0),
-    max_trans_err_(0.01),
-    max_rot_err_(0.1),
     tf_world_frame_("world"),
     broadcast_tf_(false)
   {
@@ -169,23 +167,7 @@ namespace assembly_sim
     this->model_ = _parent;
     this->sdf_ = _sdf;
 
-
-    // store mate point error
-    // from configuration in files
-    sdf::ElementPtr trans_err_elem = _sdf->GetElement("trans_mate_err");
-    if (trans_err_elem) {
-      double trans_mate_err;
-      bool _err_res = trans_err_elem->GetValue()->Get(trans_mate_err);
-      gzwarn<<"Setting mate translational error="<<trans_mate_err<<std::endl;
-      this->max_trans_err_ = trans_mate_err;
-    }
-    sdf::ElementPtr rot_err_elem = _sdf->GetElement("rot_mate_err");
-    if (rot_err_elem) {
-      double rot_mate_err;
-      bool _err_res = rot_err_elem->GetValue()->Get(rot_mate_err);
-      gzwarn<<"Setting mate rotational error="<<rot_mate_err<<std::endl;
-      this->max_rot_err_ = rot_mate_err;
-    }
+    // Get TF configuration
     sdf::ElementPtr broadcast_elem = _sdf->GetElement("tf_world_frame");
     if (broadcast_elem) {
       broadcast_elem->GetValue()->Get(tf_world_frame_);
@@ -244,6 +226,29 @@ namespace assembly_sim
             }
           }
         }
+      }
+
+      // Get the attach/detach thresholds
+      sdf::ElementPtr attach_threshold_elem = mate_elem->GetElement("attach_threshold");
+      if(attach_threshold_elem and attach_threshold_elem->HasElement("linear") and attach_threshold_elem->HasElement("angular"))
+      {
+        attach_threshold_elem->GetElement("linear")->GetValue()->Get(mate_model->attach_threshold_linear);
+        attach_threshold_elem->GetElement("angular")->GetValue()->Get(mate_model->attach_threshold_angular);
+
+        gzwarn<<(boost::format("Attach threshold linear: %f angular %f") % mate_model->attach_threshold_linear % mate_model->attach_threshold_angular)<<std::endl;
+      } else {
+        gzerr<<"No attach_threshold / linear / angular elements!"<<std::endl;
+      }
+
+      sdf::ElementPtr detach_threshold_elem = mate_elem->GetElement("detach_threshold");
+      if(detach_threshold_elem and detach_threshold_elem->HasElement("linear") and detach_threshold_elem->HasElement("angular"))
+      {
+        detach_threshold_elem->GetElement("linear")->GetValue()->Get(mate_model->detach_threshold_linear);
+        detach_threshold_elem->GetElement("angular")->GetValue()->Get(mate_model->detach_threshold_angular);
+
+        gzwarn<<(boost::format("Detach threshold linear: %f angular %f") % mate_model->attach_threshold_linear % mate_model->attach_threshold_angular)<<std::endl;
+      } else {
+        gzerr<<"No detach_threshold / linear / angular elements!"<<std::endl;
       }
 
       // Add the identity if no symmetries were added
@@ -328,7 +333,7 @@ namespace assembly_sim
         }
 
         // Get the next mate point element
-        mate_elem = atom_elem->GetNextElement(mate_elem->GetName());
+        mate_elem = mate_elem->GetNextElement(mate_elem->GetName());
       }
 
       // Store this atom
@@ -502,13 +507,14 @@ namespace assembly_sim
             MatePointPtr male_mate_point = *it_mmp;
 
             // Skip if the mates are incompatible
-            if(female_mate_point->model->model->type != male_mate_point->model->model->type) { continue; }
+            if(female_mate_point->model->model != male_mate_point->model->model) { continue; }
 
             // Compute the world pose of the male mate frame
             KDL::Frame male_mate_frame = male_atom_frame * male_mate_point->model->pose;
 
             // Get the mate between these two mate points
             MatePtr mate;
+            MateModelPtr mate_model = female_mate_point->model->model;
             mate_table_t::iterator mtf = mate_table_.find(female_mate_point);
 
             if(mtf == mate_table_.end())
@@ -546,20 +552,25 @@ namespace assembly_sim
             KDL::Twist twist_err = diff(female_mate_frame, male_mate_frame);
 
             if(mate->joint) {
+              //if(female_mate_point->model->id == 0) {
+                //gzwarn<<" --- err linear: "<<twist_err.vel.Norm()<<" angular: "<<twist_err.rot.Norm()<<std::endl;
+              //}
+
               if(mate->joint->GetParent() and mate->joint->GetChild()) {
                 //gzwarn<<"Parts are mated!"<<std::endl;
-                if(false) {
-                  // detach joint
+                if(twist_err.vel.Norm() > mate_model->detach_threshold_linear or
+                   twist_err.rot.Norm() > mate_model->detach_threshold_angular)
+                {
+                  gzwarn<<" --- demating "<<mate->joint->GetName()<<std::endl;
+                  // Detach joint
                   mate->joint->Detach();
-                  // disable the mate
                 }
               } else {
                 //gzwarn<<"Parts are not mated!"<<std::endl;
-                if(twist_err.vel.Norm() < max_trans_err_ and twist_err.rot.Norm() < max_rot_err_) {
-                  gzwarn<<" --- from "<<female_atom->link->GetName()<<" -> "<<male_atom->link->GetName()<<std::endl;
-                  gzwarn<<" --- trans twist err: "<<twist_err.vel<<std::endl;
-                  gzwarn<<" --- rot twist err: "<<twist_err.rot<<std::endl;
-                  gzwarn<<" --- mating."<<std::endl;
+                if(twist_err.vel.Norm() < mate_model->attach_threshold_linear and
+                   twist_err.rot.Norm() < mate_model->attach_threshold_angular)
+                {
+                  gzwarn<<" --- mating "<<mate->joint->GetName()<<std::endl;
 
                   // attach joint
                   mate->joint->Attach(female_atom->link, male_atom->link);
@@ -579,7 +590,8 @@ namespace assembly_sim
               }
 
               // Broadcast the TF frame for this joint
-              if (broadcast_tf_ and mate->joint->GetParent() and mate->joint->GetChild()) {
+              if (broadcast_tf_ and mate->joint->GetParent() and mate->joint->GetChild())
+              {
                 tf::Transform tf_joint_frame;
                 //to_kdl(male_atom->link->GetWorldPose() * mate->joint->GetInitialAnchorPose(), tf_frame);
                 //to_tf(mate->joint->GetWorldPose(), tf_frame);

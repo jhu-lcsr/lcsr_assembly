@@ -18,6 +18,8 @@
       <plugin filename="libgazebo_ros_hand_of_god.so" name="hand_of_god">
         <frameId>hog</frameId>
         <linkName>hog</linkName>
+        <kl>10000</kl>
+        <ka>200</ka>
       </plugin>
       <link name="hog">
         <self_collide>0</self_collide>
@@ -36,13 +38,23 @@
             </sphere>
           </geometry>
         </visual>
+        <inertial>
+          <mass>0.3</mass>
+          <inertia>
+            <ixx>0.001</ixx>
+            <ixy>0</ixy>
+            <ixz>0</ixz>
+            <iyy>0.001</iyy>
+            <iyz>0</iyz>
+            <izz>0.001</izz>
+          </inertia>
+        </inertial>
       </link>
     </model>
     <!-- GBeam Soup -->
     <model name="gbeam_soup">
       <plugin filename="libassembly_soup_plugin.so" name="assembly_soup">
-        <trans_mate_err>0.01</trans_mate_err>
-        <rot_mate_err>0.1</rot_mate_err>
+        <!-- Frame that poses are broadcasted in -->
         <tf_world_frame>world</tf_world_frame>
         <!-- Mate Models -->
         <mate_model type="gbeam">
@@ -52,6 +64,14 @@
           <symmetry>
             <rot>1 1 4</rot>
           </symmetry>
+          <attach_threshold>
+            <linear>0.01</linear>
+            <angular>0.1</angular>
+          </attach_threshold>
+          <detach_threshold>
+            <linear>0.015</linear>
+            <angular>0.2</angular>
+          </detach_threshold>
           <joint name="gbeam" type="prismatic">
             <pose>0 0.025 0 0 1.570796325 0</pose>
             <parent>gbeam_link</parent>
@@ -79,35 +99,35 @@
         <!-- Atom Models -->
         <atom_model type="gbeam_link">
           <mate_point gender="male" type="gbeam">
-            <pose>0 0.15 0 1.570796325 0 3.14159265</pose>
+            <pose>0 0.125 0 1.570796325 0.7853981625 3.14159265</pose>
           </mate_point>
-          <!--<mate_point type="gbeam" gender="male">-->
-          <!--<pose>0 -0.100 0 -${pi/2.0} 0 0</pose>-->
-          <!--</mate_point>-->
+          <mate_point gender="male" type="gbeam">
+            <pose>0 -0.125 0 1.570796325 0.7853981625 0</pose>
+          </mate_point>
         </atom_model>
         <atom_model type="gbeam_node">
-          <!--<mate_point type="gbeam" gender="female">-->
-          <!--<pose>0 0.025 0 ${pi/2} 0 0</pose>-->
-          <!--</mate_point>-->
+          <mate_point gender="female" type="gbeam">
+            <pose>0 0.025 0 1.570796325 0 0</pose>
+          </mate_point>
           <mate_point gender="female" type="gbeam">
             <pose>0 -0.025 0 1.570796325 0 3.14159265</pose>
           </mate_point>
-          <!--<mate_point type="gbeam" gender="female">-->
-          <!--<pose>0 0.05 0 -${pi/2.0} 0 0</pose>-->
-          <!--</mate_point>-->
-          <!--<mate_point type="gbeam" gender="female">-->
-          <!--<pose>0 -0.05 0 ${pi/2.0} 0 0</pose>-->
-          <!--</mate_point>-->
-          <!--<mate_point type="gbeam" gender="female">-->
-          <!--<pose>0.05 0 0 0 ${pi/2.0} 0</pose>-->
-          <!--</mate_point>-->
-          <!--<mate_point type="gbeam" gender="female">-->
-          <!--<pose>-0.05 0 0 0 -${pi/2.0} 0</pose>-->
-          <!--</mate_point>-->
+          <mate_point gender="female" type="gbeam">
+            <pose>0 0 0.025 3.14159265 0 0</pose>
+          </mate_point>
+          <mate_point gender="female" type="gbeam">
+            <pose>0 0 -0.025 0 0 0</pose>
+          </mate_point>
+          <mate_point gender="female" type="gbeam">
+            <pose>0.025 0 0 0 -1.570796325 0</pose>
+          </mate_point>
+          <mate_point gender="female" type="gbeam">
+            <pose>-0.025 0 0 0 1.570796325 0</pose>
+          </mate_point>
         </atom_model>
       </plugin>
       <link name="gbeam_node_1">
-        <pose>0 0.3 0 0 0 0</pose>
+        <pose>0 0.3 0.2 0 0 0</pose>
         <self_collide>1</self_collide>
         <inertial>
           <mass>0.2</mass>
@@ -122,16 +142,24 @@
         </inertial>
         <collision name="collision">
           <geometry>
-            <box>
-              <size>0.05 0.05 0.05</size>
-            </box>
+            <mesh>
+              <uri>file:///home/jbohren/ws/ascent/mono/src/lcsr_assembly/gbeam_model/meshes/gbeam_node_25k.dae</uri>
+            </mesh>
           </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>0.5</mu>
+                <mu2>0.5</mu2>
+              </ode>
+            </friction>
+          </surface>
         </collision>
         <visual name="visual">
           <geometry>
-            <box>
-              <size>0.05 0.05 0.05</size>
-            </box>
+            <mesh>
+              <uri>file:///home/jbohren/ws/ascent/mono/src/lcsr_assembly/gbeam_model/meshes/gbeam_node_25k.dae</uri>
+            </mesh>
           </geometry>
         </visual>
       </link>
@@ -140,7 +168,7 @@
       <!--<xacro:gbeam_node suffix="_4" pose="0 0 0.3 0 0 0"/>-->
       <!--<xacro:gbeam_node suffix="_5" pose="0 0 0.4 0 0 0"/>-->
       <link name="gbeam_link_1">
-        <pose>0 0 0 0 0 0</pose>
+        <pose>0 0 0.2 0 0 0</pose>
         <self_collide>1</self_collide>
         <inertial>
           <mass>0.3</mass>
@@ -155,16 +183,24 @@
         </inertial>
         <collision name="collision">
           <geometry>
-            <box>
-              <size>0.05 0.3 0.05</size>
-            </box>
+            <mesh>
+              <uri>file:///home/jbohren/ws/ascent/mono/src/lcsr_assembly/gbeam_model/meshes/gbeam_link_50k.dae</uri>
+            </mesh>
           </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>1.0</mu>
+                <mu2>0.7</mu2>
+              </ode>
+            </friction>
+          </surface>
         </collision>
         <visual name="visual">
           <geometry>
-            <box>
-              <size>0.05 0.3 0.05</size>
-            </box>
+            <mesh>
+              <uri>file:///home/jbohren/ws/ascent/mono/src/lcsr_assembly/gbeam_model/meshes/gbeam_link_50k.dae</uri>
+            </mesh>
           </geometry>
         </visual>
       </link>

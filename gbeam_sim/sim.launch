@@ -58,7 +58,7 @@
 
   <!-- Interactive Marker Hand of God -->
   <group if="$(arg marker)">
-    <node pkg="lcsr_tf_tools" type="interactive_transform_publisher" name="$(anon itp)" args="0.0168786 0.385817 0.121087 0 0 0 /world /hog_desired 10"/>
+    <node pkg="lcsr_tf_tools" type="interactive_transform_publisher" name="$(anon itp)" args="0.0 0.4 0.15 0 0 0 /world /hog_desired 10"/>
   </group>
 </launch>
 
