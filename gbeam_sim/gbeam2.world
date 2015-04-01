@@ -13,9 +13,10 @@
     <include>
       <uri>model://ground_plane</uri>
     </include>
+    <!-- Hand of God -->
     <model name="hog">
       <plugin filename="libgazebo_ros_hand_of_god.so" name="hand_of_god">
-        <frameId>hydra_right_grab</frameId>
+        <frameId>hog</frameId>
         <linkName>hog</linkName>
       </plugin>
       <link name="hog">
@@ -37,6 +38,7 @@
         </visual>
       </link>
     </model>
+    <!-- GBeam Soup -->
     <model name="gbeam_soup">
       <plugin filename="libassembly_soup_plugin.so" name="assembly_soup">
         <trans_mate_err>0.01</trans_mate_err>
@@ -50,12 +52,12 @@
           <symmetry>
             <rot>1 1 4</rot>
           </symmetry>
-          <joint name="gbeam" type="revolute">
+          <joint name="gbeam" type="prismatic">
             <pose>0 0.025 0 0 1.570796325 0</pose>
             <parent>gbeam_link</parent>
             <child>gbeam_node</child>
             <axis>
-              <xyz>1 0 0</xyz>
+              <xyz>0 1 0</xyz>
               <limit>
                 <lower>-0.01</lower>
                 <upper>0.01</upper>

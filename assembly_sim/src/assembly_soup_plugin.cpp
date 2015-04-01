@@ -135,7 +135,18 @@ namespace assembly_sim
     // Construct the actual joint between these two atom links
     joint = gazebo_model->GetWorld()->GetPhysicsEngine()->CreateJoint(joint_type, gazebo_model);
     joint->SetModel(gazebo_model);
+
+    // Load joint description from SDF
+    //  - sets parend a child links
+    //  - sets the anchor pose
+    //  - loads sensor elements
     joint->Load(joint_sdf);
+
+    // Initialize joint
+    //  - sets axis orientation
+    //  - sets axis limits
+    //  - attaches parent and child via this joint
+    joint->Init();
 
     // Joints should initially be detached
     joint->Detach();
@@ -395,23 +406,27 @@ namespace assembly_sim
       to_kdl(female_atom->link->GetWorldPose(), female_atom_frame);
 
       // Construct some names for use with TF
-      const std::string body_name = str(
-          boost::format("%s/%s")
-          % model_->GetName()
+      const std::string atom_name = str(
+          boost::format("%s")
           % female_atom->link->GetName());
+      const std::string link_name = str(
+          boost::format("%s/%s")
+          % atom_name
+          % female_atom->model->type);
 
       // Broadcast TF frames for this link
       if(broadcast_tf_)
       {
-        // Broadcast a tf frame for this link
         tf::Transform tf_frame;
+
+        // Broadcast a tf frame for this link
         to_tf(female_atom->link->GetWorldPose(), tf_frame);
         br.sendTransform(
             tf::StampedTransform(
                 tf_frame,
                 ros::Time::now(),
                 tf_world_frame_,
-                body_name));
+                link_name));
 
         // Broadcast all male mate points for this atom
         for(std::vector<MatePointPtr>::iterator it_mmp = female_atom->male_mate_points.begin();
@@ -422,16 +437,15 @@ namespace assembly_sim
 
           const std::string male_mate_point_name = str(
               boost::format("%s/male_%d")
-              % body_name
+              % atom_name
               % male_mate_point->model->id);
 
-          tf::Transform tf_frame;
           tf::poseKDLToTF(male_mate_point->model->pose,tf_frame);
           br.sendTransform(
               tf::StampedTransform(
                   tf_frame,
                   ros::Time::now(),
-                  body_name,
+                  link_name,
                   male_mate_point_name));
         }
 
@@ -444,16 +458,15 @@ namespace assembly_sim
 
           const std::string female_mate_point_name = str(
               boost::format("%s/female_%d")
-              % body_name
+              % atom_name
               % female_mate_point->model->id);
 
-          tf::Transform tf_frame;
           tf::poseKDLToTF(female_mate_point->model->pose, tf_frame);
           br.sendTransform(
               tf::StampedTransform(
                   tf_frame,
                   ros::Time::now(),
-                  body_name,
+                  link_name,
                   female_mate_point_name));
         }
       }
@@ -550,14 +563,18 @@ namespace assembly_sim
 
                   // attach joint
                   mate->joint->Attach(female_atom->link, male_atom->link);
-                  gazebo::math::Pose anchor_pose = mate->joint->GetInitialAnchorPose();
+                  gazebo::math::Pose initial_anchor_pose = mate->joint->GetInitialAnchorPose();
+                  gazebo::math::Pose anchor_pose;
+                  KDL::Frame initial_anchor_frame;
+
+                  to_kdl(initial_anchor_pose, initial_anchor_frame);
+                  to_gazebo(male_atom_frame*initial_anchor_frame, anchor_pose);
+
+                  // Set the anchor position (location of the joint)
+                  // This is in the WORLD frame
                   mate->joint->SetAnchor(0, anchor_pose.pos);
 
-                  KDL::Frame anchor_frame;
-                  to_kdl(anchor_pose, anchor_frame);
-                  gzwarn<<" --- joint pose: "<<std::endl<<anchor_frame<<std::endl;
-
-                  //mate->joint->Init();
+                  gzwarn<<" --- joint pose: "<<std::endl<<initial_anchor_frame<<std::endl;
                 }
               }
 

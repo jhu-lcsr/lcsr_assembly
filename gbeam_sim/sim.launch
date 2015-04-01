@@ -1,8 +1,10 @@
 <launch>
   <arg name="gui" default="false"/>
   <arg name="hydra" default="false"/>
+  <arg name="marker" default="false"/>
   <arg name="debug" default="false"/>
   <arg name="paused" default="false"/>
+
   <arg name="rviz" default="false" doc="(bool) bring up rviz UI to see mates"/>
   <arg name="rviz_config" default="$(find gbeam_sim)/config/sim.rviz" doc="(string) rviz config file for user interface"/>
 
@@ -13,8 +15,6 @@
   -->
 
   <param name="use_sim_time" value="true"/>
-  <param name="gbeam_link_description" textfile="$(find gbeam_model)/urdf/gbeam_link.urdf"/>
-  <param name="gbeam_node_description" textfile="$(find gbeam_model)/urdf/gbeam_node.urdf"/>
 
   <!-- We resume the logic in empty_world.launch, changing only the name of the world to be launched -->
   <include file="$(find gazebo_ros)/launch/empty_world.launch">
@@ -26,17 +26,27 @@
     <arg name="debug" value="$(arg debug)"/>
   </include>
 
-  <node if="$(arg rviz)" pkg="rviz" type="rviz" name="rviz" args="-d $(arg rviz_config)" />
+  <!-- Atom models for atom visualization -->
+  <param name="gbeam_link_description" textfile="$(find gbeam_model)/urdf/gbeam_link.urdf"/>
+  <param name="gbeam_node_description" textfile="$(find gbeam_model)/urdf/gbeam_node.urdf"/>
+  <param name="hand_of_god_description" textfile="$(find gbeam_model)/urdf/hand_of_god.urdf"/>
+  <node pkg="tf" type="static_transform_publisher" name="$(anon stp)" args="0 0 0 0 0 0 /hog_desired /hog 100"/>
 
-  <param name="robot_description" textfile="$(find gbeam_sim)/gazebo_planning_scene.urdf"/>
-  <node name="spawn_urdf" pkg="gazebo_ros" type="spawn_model" args="-param robot_description -urdf -model ghost" />
+  <group if="$(arg rviz)">
+    <node pkg="rviz" type="rviz" name="rviz" args="-d $(arg rviz_config)" />
+  </group>
 
+  <!-- Robot description for planning scene visualization -->
+  <param name="ghost_robot_description" textfile="$(find gbeam_sim)/gazebo_planning_scene.urdf"/>
+  <node name="spawn_urdf" pkg="gazebo_ros" type="spawn_model" args="-param ghost_robot_description -urdf -model ghost" />
+
+  <!-- Razer Hydra Hand of God -->
   <group if="$(arg hydra)">
-
-    <param if="$(arg rviz)" name="hand_of_god_description" textfile="$(find gbeam_model)/urdf/hand_of_god.urdf"/>
-    <node if="$(arg rviz)" pkg="tf" type="static_transform_publisher" name="$(anon stp)" args="0 0 0 0 0 0 /hydra_right_grab_desired /hog 100"/>
-
     <node pkg="tf" type="static_transform_publisher" name="$(anon stp)" args="0.5 0 -0.01 0 0 0 /world /hydra_base 100"/>
+
+    <include file="$(find razer_hydra)/launch/hydra.launch">
+      <arg name="publish_tf" value="true"/>
+    </include>
 
     <node pkg="gbeam_sim" type="tf_scaler.py" name="tf_scaler">
       <param name="parent_frame_id" value="world"/>
@@ -44,12 +54,11 @@
       <param name="scaled_frame_id" value="hydra_right_grab_desired"/>
       <param name="scale" value="4.0"/>
     </node>
+  </group>
 
-
-
-    <include file="$(find razer_hydra)/launch/hydra.launch">
-      <arg name="publish_tf" value="true"/>
-    </include>
+  <!-- Interactive Marker Hand of God -->
+  <group if="$(arg marker)">
+    <node pkg="lcsr_tf_tools" type="interactive_transform_publisher" name="$(anon itp)" args="0.0168786 0.385817 0.121087 0 0 0 /world /hog_desired 10"/>
   </group>
 </launch>
 

@@ -12,31 +12,30 @@
       <uri>model://ground_plane</uri>
     </include>
 
-    <xacro:if value="1">
-      <model name ='hog'>
-        <plugin name='hand_of_god' filename="libgazebo_ros_hand_of_god.so">
-          <frameId>hydra_right_grab</frameId>
-          <linkName>hog</linkName>
-        </plugin>
+    <!-- Hand of God -->
+    <model name ='hog'>
+      <plugin name='hand_of_god' filename="libgazebo_ros_hand_of_god.so">
+        <frameId>hog</frameId>
+        <linkName>hog</linkName>
+      </plugin>
 
-        <link name ='hog'>
-          <self_collide>0</self_collide>
-          <pose>0 0 1 0 0 0</pose>
-          <collision name ='collision'>
-            <geometry>
-              <sphere><radius>0.025</radius></sphere>
-            </geometry>
-          </collision>
-          <visual name ='visual'>
-            <geometry>
-              <sphere><radius>0.025</radius></sphere>
-            </geometry>
-          </visual>
-        </link>
-      </model>
+      <link name ='hog'>
+        <self_collide>0</self_collide>
+        <pose>0 0 1 0 0 0</pose>
+        <collision name ='collision'>
+          <geometry>
+            <sphere><radius>0.025</radius></sphere>
+          </geometry>
+        </collision>
+        <visual name ='visual'>
+          <geometry>
+            <sphere><radius>0.025</radius></sphere>
+          </geometry>
+        </visual>
+      </link>
+    </model>
 
-   </xacro:if>
-
+    <!-- GBeam Soup -->
     <xacro:include filename="$(find gbeam_sim)/gbeam_soup.sdf.xacro"/>
 
   </world>
