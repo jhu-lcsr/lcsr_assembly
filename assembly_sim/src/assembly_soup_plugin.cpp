@@ -105,9 +105,6 @@ namespace assembly_sim
       <<std::endl;
 
     // Create a new joint
-    // TODO: make sure the joint is initialized with the joint template
-    // TODO: make sure it is created detached
-    // TODO: make sure it is created in the right location
     MateModelPtr mate_model = female_mate_point_model->model;
 
     // Get the joint type
@@ -271,18 +268,6 @@ namespace assembly_sim
       // Create a new atom
       AtomModelPtr atom_model = boost::make_shared<AtomModel>();
       atom_elem->GetAttribute("type")->Get(atom_model->type);
-
-#if 0
-      // Get the atom link
-      atom_model->link_template = boost::make_shared<sdf::Element>();
-      sdf::readString(atom_elem->GetElement("link")->ToString(""), atom_model->link_template);
-
-      // Get the atom template link
-      atom_model->link_template_sdf = boost::make_shared<sdf::SDF>();
-      sdf::init(sdf::SDFPtr(atom_model->link_template_sdf));
-      sdf::readString(complete_sdf(atom_elem->GetElement("link")->ToString("")), atom_model->link_template_sdf);
-      atom_model->link_template = atom_model->link_template_sdf->root->GetElement("model")->GetElement("link");
-#endif
 
       // Get the atom mate points
       sdf::ElementPtr mate_elem = atom_elem->GetElement("mate_point");
