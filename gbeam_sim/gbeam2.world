@@ -154,7 +154,7 @@
         <collision name="collision">
           <geometry>
             <mesh>
-              <uri>file:///home/jbohren/ws/ascent/mono/src/lcsr_assembly/gbeam_model/meshes/gbeam_node_5k.stl</uri>
+              <uri>file:///home/cpaxton/rpd/ascent_ws/src/lcsr_assembly/gbeam_model/meshes/gbeam_node_5k.stl</uri>
             </mesh>
           </geometry>
           <surface>
@@ -169,7 +169,7 @@
         <visual name="visual">
           <geometry>
             <mesh>
-              <uri>file:///home/jbohren/ws/ascent/mono/src/lcsr_assembly/gbeam_model/meshes/gbeam_node_5k.stl</uri>
+              <uri>file:///home/cpaxton/rpd/ascent_ws/src/lcsr_assembly/gbeam_model/meshes/gbeam_node_5k.stl</uri>
             </mesh>
           </geometry>
         </visual>
@@ -192,7 +192,7 @@
         <collision name="collision">
           <geometry>
             <mesh>
-              <uri>file:///home/jbohren/ws/ascent/mono/src/lcsr_assembly/gbeam_model/meshes/gbeam_node_5k.stl</uri>
+              <uri>file:///home/cpaxton/rpd/ascent_ws/src/lcsr_assembly/gbeam_model/meshes/gbeam_node_5k.stl</uri>
             </mesh>
           </geometry>
           <surface>
@@ -207,7 +207,7 @@
         <visual name="visual">
           <geometry>
             <mesh>
-              <uri>file:///home/jbohren/ws/ascent/mono/src/lcsr_assembly/gbeam_model/meshes/gbeam_node_5k.stl</uri>
+              <uri>file:///home/cpaxton/rpd/ascent_ws/src/lcsr_assembly/gbeam_model/meshes/gbeam_node_5k.stl</uri>
             </mesh>
           </geometry>
         </visual>
@@ -230,7 +230,7 @@
         <collision name="collision">
           <geometry>
             <mesh>
-              <uri>file:///home/jbohren/ws/ascent/mono/src/lcsr_assembly/gbeam_model/meshes/gbeam_node_5k.stl</uri>
+              <uri>file:///home/cpaxton/rpd/ascent_ws/src/lcsr_assembly/gbeam_model/meshes/gbeam_node_5k.stl</uri>
             </mesh>
           </geometry>
           <surface>
@@ -245,7 +245,7 @@
         <visual name="visual">
           <geometry>
             <mesh>
-              <uri>file:///home/jbohren/ws/ascent/mono/src/lcsr_assembly/gbeam_model/meshes/gbeam_node_5k.stl</uri>
+              <uri>file:///home/cpaxton/rpd/ascent_ws/src/lcsr_assembly/gbeam_model/meshes/gbeam_node_5k.stl</uri>
             </mesh>
           </geometry>
         </visual>
@@ -270,7 +270,7 @@
         <collision name="collision">
           <geometry>
             <mesh>
-              <uri>file:///home/jbohren/ws/ascent/mono/src/lcsr_assembly/gbeam_model/meshes/gbeam_link_5k.stl</uri>
+              <uri>file:///home/cpaxton/rpd/ascent_ws/src/lcsr_assembly/gbeam_model/meshes/gbeam_link_5k.stl</uri>
             </mesh>
           </geometry>
           <surface>
@@ -285,7 +285,7 @@
         <visual name="visual">
           <geometry>
             <mesh>
-              <uri>file:///home/jbohren/ws/ascent/mono/src/lcsr_assembly/gbeam_model/meshes/gbeam_link_5k.stl</uri>
+              <uri>file:///home/cpaxton/rpd/ascent_ws/src/lcsr_assembly/gbeam_model/meshes/gbeam_link_5k.stl</uri>
             </mesh>
           </geometry>
         </visual>
@@ -308,7 +308,7 @@
         <collision name="collision">
           <geometry>
             <mesh>
-              <uri>file:///home/jbohren/ws/ascent/mono/src/lcsr_assembly/gbeam_model/meshes/gbeam_link_5k.stl</uri>
+              <uri>file:///home/cpaxton/rpd/ascent_ws/src/lcsr_assembly/gbeam_model/meshes/gbeam_link_5k.stl</uri>
             </mesh>
           </geometry>
           <surface>
@@ -323,7 +323,7 @@
         <visual name="visual">
           <geometry>
             <mesh>
-              <uri>file:///home/jbohren/ws/ascent/mono/src/lcsr_assembly/gbeam_model/meshes/gbeam_link_5k.stl</uri>
+              <uri>file:///home/cpaxton/rpd/ascent_ws/src/lcsr_assembly/gbeam_model/meshes/gbeam_link_5k.stl</uri>
             </mesh>
           </geometry>
         </visual>

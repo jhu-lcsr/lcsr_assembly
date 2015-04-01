@@ -10,7 +10,11 @@
 
   <!--
 
+  For example, to launch with the Razer Hydra:
   rosrun xacro xacro.py gbeam.world.xacro > gbeam2.world && roslaunch sim.launch hydra:=true
+
+  Or, for the RVIZ UI with a moveable marker:
+  rosrun xacro xacro.py gbeam.world.xacro > gbeam2.world && roslaunch sim.launch rviz:=true marker:=true
 
   -->
 
@@ -51,7 +55,7 @@
     <node pkg="gbeam_sim" type="tf_scaler.py" name="tf_scaler">
       <param name="parent_frame_id" value="world"/>
       <param name="unscaled_frame_id" value="hydra_right_grab"/>
-      <param name="scaled_frame_id" value="hydra_right_grab_desired"/>
+      <param name="scaled_frame_id" value="hog_desired"/>
       <param name="scale" value="4.0"/>
     </node>
   </group>

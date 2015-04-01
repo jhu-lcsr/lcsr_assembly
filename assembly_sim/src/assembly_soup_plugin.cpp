@@ -8,8 +8,12 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/format.hpp>
 
+// tf headers
 #include <tf/transform_broadcaster.h>
 #include <tf_conversions/tf_kdl.h>
+
+// visualize mates in rviz gui
+#include <visualization_msgs/MarkerArray.h>
 
 #include <kdl/frames_io.hpp>
 
@@ -155,7 +159,6 @@ namespace assembly_sim
     tf_world_frame_("world"),
     broadcast_tf_(false)
   {
-
   }
 
   void AssemblySoup::Load(gazebo::physics::ModelPtr _parent, sdf::ElementPtr _sdf)
@@ -170,6 +173,11 @@ namespace assembly_sim
       broadcast_elem->GetValue()->Get(tf_world_frame_);
       gzwarn<<"Broadcasting TF frames for joints relative to \""<<tf_world_frame_<<"\""<<std::endl;
       broadcast_tf_ = true;
+
+      // set up publishers for visualization
+      ros::NodeHandle nh;
+      male_mate_pub_ = nh.advertise<visualization_msgs::MarkerArray>("male_mate_points",1000);
+      female_mate_pub_ = nh.advertise<visualization_msgs::MarkerArray>("female_mate_points",1000);
     }
 
     // Get the description of the mates in this soup
@@ -384,10 +392,11 @@ namespace assembly_sim
 
     static tf::TransformBroadcaster br;
 
+    unsigned int iter = 0;
     // Iterate over all atoms
     for(std::vector<AtomPtr>::iterator it_fa = atoms_.begin();
         it_fa != atoms_.end();
-        ++it_fa)
+        ++it_fa,++iter)
     {
       AtomPtr female_atom = *it_fa;
 
@@ -407,7 +416,12 @@ namespace assembly_sim
       // Broadcast TF frames for this link
       if(broadcast_tf_)
       {
+
+        //gzwarn<<"broadcasting tf/marker info"<<std::endl;
+
         tf::Transform tf_frame;
+        visualization_msgs::MarkerArray male_mate_markers;
+        visualization_msgs::MarkerArray female_mate_markers;
 
         // Broadcast a tf frame for this link
         to_tf(female_atom->link->GetWorldPose(), tf_frame);
@@ -437,6 +451,21 @@ namespace assembly_sim
                   ros::Time::now(),
                   link_name,
                   male_mate_point_name));
+
+          visualization_msgs::Marker mate_marker;
+          mate_marker.header.frame_id = male_mate_point_name;
+          mate_marker.header.stamp = ros::Time(0);
+          mate_marker.type = mate_marker.CUBE;
+          mate_marker.action = mate_marker.ADD;
+          mate_marker.id = (iter * 100) + male_mate_point->model->id;
+          mate_marker.scale.x = 0.02;
+          mate_marker.scale.y = 0.02;
+          mate_marker.scale.z = 0.01;
+          mate_marker.color.r = 1.0;
+          mate_marker.color.g = 0.0;
+          mate_marker.color.b = 0.0;
+          mate_marker.color.a = 0.25;
+          male_mate_markers.markers.push_back(mate_marker);
         }
 
         // Broadcast all female mate points for this atom
@@ -458,7 +487,25 @@ namespace assembly_sim
                   ros::Time::now(),
                   link_name,
                   female_mate_point_name));
+
+          visualization_msgs::Marker mate_marker;
+          mate_marker.header.frame_id = female_mate_point_name;
+          mate_marker.header.stamp = ros::Time(0);
+          mate_marker.type = mate_marker.CUBE;
+          mate_marker.action = mate_marker.ADD;
+          mate_marker.id = (iter * 100) + female_mate_point->model->id;
+          mate_marker.scale.x = 0.02;
+          mate_marker.scale.y = 0.02;
+          mate_marker.scale.z = 0.01;
+          mate_marker.color.r = 0.0;
+          mate_marker.color.g = 0.0;
+          mate_marker.color.b = 1.0;
+          mate_marker.color.a = 0.25;
+          female_mate_markers.markers.push_back(mate_marker);
         }
+
+        male_mate_pub_.publish(male_mate_markers);
+        female_mate_pub_.publish(female_mate_markers);
       }
 
       // Iterate over all female mate points of female link

@@ -132,6 +132,9 @@ namespace assembly_sim {
       // Pointer to the update event connection
       gazebo::event::ConnectionPtr updateConnection_;
 
+      ros::Publisher male_mate_pub_;
+      ros::Publisher female_mate_pub_;
+
     protected:
       size_t mate_id_counter_;
       size_t atom_id_counter_;
