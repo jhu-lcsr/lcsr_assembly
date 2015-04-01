@@ -127,7 +127,7 @@ namespace assembly_sim
     to_gazebo(male_mate_point_model->pose, pose);
     joint_sdf->GetElement("pose")->GetValue()->Set(pose);
 
-    gzwarn<<"joint sdf:\n\n"<<joint_sdf->ToString(">>")<<std::endl;
+    //gzwarn<<"joint sdf:\n\n"<<joint_sdf->ToString(">>")<<std::endl;
 
     // Construct the actual joint between these two atom links
     joint = gazebo_model->GetWorld()->GetPhysicsEngine()->CreateJoint(joint_type, gazebo_model);

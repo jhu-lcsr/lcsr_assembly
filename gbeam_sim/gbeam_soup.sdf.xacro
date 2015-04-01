@@ -4,9 +4,10 @@
 
   <xacro:macro name="gbeam_link" params="suffix pose">
     <link name="gbeam_link${suffix}">
-      <pose>${pose}</pose>
-
+      <gravity>1</gravity>
       <self_collide>1</self_collide>
+
+      <pose>${pose}</pose>
 
       <inertial>
         <mass>0.3</mass>
@@ -40,9 +41,10 @@
 
   <xacro:macro name="gbeam_node" params="suffix pose">
     <link name="gbeam_node${suffix}">
-      <pose>${pose}</pose>
-
+      <gravity>1</gravity>
       <self_collide>1</self_collide>
+
+      <pose>${pose}</pose>
 
       <inertial>
         <mass>0.2</mass>
@@ -76,6 +78,13 @@
   </xacro:macro>
 
   <model name="gbeam_soup">
+    <plugin name='hand_of_god' filename="libgazebo_ros_hand_of_god.so">
+      <frameId>hog</frameId>
+      <linkName>hog</linkName>
+      <kl>400</kl>
+      <ka>200</ka>
+    </plugin>
+
     <plugin name="assembly_soup" filename="libassembly_soup_plugin.so">
 
       <!-- Frame that poses are broadcasted in -->
@@ -106,12 +115,12 @@
           <child>gbeam_node</child>
           <axis>
             <xyz>0 1 0</xyz>
-            <limit><lower>-0.01</lower><upper>0.01</upper></limit>
+            <limit><lower>-0.001</lower><upper>0.001</upper></limit>
           </axis>
           <physics>
             <ode>
               <cfm_damping>true</cfm_damping>
-              <cfm>0.1</cfm>
+              <cfm>0.01</cfm>
               <erp>0.05</erp>
               <limit>
                 <cfm>0.1</cfm>
@@ -121,6 +130,47 @@
           </physics>
         </joint>
       </mate_model>
+
+      <!-- Experimental: add a mate point to the hog -->
+      <atom_model type="hog">
+        <mate_point type="gbeam" gender="female">
+          <pose>0 0.025 0 ${pi/2} 0 0</pose>
+        </mate_point>
+        <mate_point type="gbeam" gender="female">
+          <pose>0 -0.025 0 ${pi/2} 0 ${pi}</pose>
+        </mate_point>
+        <mate_point type="gbeam" gender="female">
+          <pose>0 0 0.025 ${pi} 0 0</pose>
+        </mate_point>
+        <mate_point type="gbeam" gender="female">
+          <pose>0 0 -0.025 0 0 0</pose>
+        </mate_point>
+        <mate_point type="gbeam" gender="female">
+          <pose>0.025 0 0 0 -${pi/2.0} 0</pose>
+        </mate_point>
+        <mate_point type="gbeam" gender="female">
+          <pose>-0.025 0 0 0 ${pi/2.0} 0</pose>
+        </mate_point>
+
+        <mate_point type="gbeam" gender="male">
+          <pose>0 -0.025 0 ${pi/2} 0 0</pose>
+        </mate_point>
+        <mate_point type="gbeam" gender="male">
+          <pose>0 0.025 0 ${pi/2} 0 ${pi}</pose>
+        </mate_point>
+        <mate_point type="gbeam" gender="male">
+          <pose>0 0 -0.025 ${pi} 0 0</pose>
+        </mate_point>
+        <mate_point type="gbeam" gender="male">
+          <pose>0 0 0.025 0 0 0</pose>
+        </mate_point>
+        <mate_point type="gbeam" gender="male">
+          <pose>-0.025 0 0 0 -${pi/2.0} 0</pose>
+        </mate_point>
+        <mate_point type="gbeam" gender="male">
+          <pose>0.025 0 0 0 ${pi/2.0} 0</pose>
+        </mate_point>
+      </atom_model>
 
       <!-- Atom Models -->
       <atom_model type="gbeam_link">
@@ -165,6 +215,29 @@
     <!--<xacro:gbeam_link suffix="_3" pose="0 0.1 0.2 0 0 0"/>-->
     <!--<xacro:gbeam_link suffix="_4" pose="0 0.1 0.3 0 0 0"/>-->
     <!--<xacro:gbeam_link suffix="_5" pose="0 0.1 0.4 0 0 0"/>-->
+
+    <link name ='hog'>
+      <self_collide>1</self_collide>
+      <pose>0 0 0.4 0 0 0</pose>
+      <collision name ='collision'>
+        <geometry>
+          <sphere><radius>0.025</radius></sphere>
+        </geometry>
+      </collision>
+      <visual name ='visual'>
+        <geometry>
+          <sphere><radius>0.025</radius></sphere>
+        </geometry>
+      </visual>
+      <inertial>
+        <mass>0.3</mass>
+        <inertia>
+          <ixx>0.001</ixx><ixy>0</ixy>    <ixz>0</ixz>
+          <iyy>0.001</iyy><iyz>0</iyz>
+          <izz>0.001</izz>
+        </inertia>
+      </inertial>
+    </link>
   </model>
 </sdf>
 
