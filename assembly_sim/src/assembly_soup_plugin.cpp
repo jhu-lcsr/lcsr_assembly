@@ -15,6 +15,9 @@
 // visualize mates in rviz gui
 #include <visualization_msgs/MarkerArray.h>
 
+// send information to ros
+#include <assembly_msgs/MateList.h>
+
 #include <kdl/frames_io.hpp>
 
 #include "assembly_soup_plugin.h"
@@ -157,7 +160,8 @@ namespace assembly_sim
     mate_id_counter_(0),
     atom_id_counter_(0),
     tf_world_frame_("world"),
-    broadcast_tf_(false)
+    broadcast_tf_(false),
+    publish_active_mates_(true)
   {
   }
 
@@ -179,6 +183,21 @@ namespace assembly_sim
       male_mate_pub_ = nh.advertise<visualization_msgs::MarkerArray>("male_mate_points",1000);
       female_mate_pub_ = nh.advertise<visualization_msgs::MarkerArray>("female_mate_points",1000);
     }
+
+    // are we going to publish ros messages describing mate status?
+    //sdf::ElementPtr publish_mate_elem = _sdf->GetElement("publish_active_mates");
+    //if (publish_mate_elem) {
+    //publish_mate_elem->GetValue()->Get(publish_active_mates_);
+    //if (publish_active_mates_) {
+    ros::NodeHandle nh;
+    active_mates_pub_ = nh.advertise<assembly_msgs::MateList>("active_mates",1000);
+    //gzwarn << "Publishing active mates!" << std::endl;
+    //} else {
+    //  gzwarn << "Not publishing active mates!" << std::endl;
+    //}
+    //} else {
+    //  gzerr << "Error reading publish active mates!" << std::endl;
+    //}
 
     // Get the description of the mates in this soup
     sdf::ElementPtr mate_elem = _sdf->GetElement("mate_model");
@@ -392,6 +411,8 @@ namespace assembly_sim
 
     static tf::TransformBroadcaster br;
 
+    assembly_msgs::MateList mates_msg;
+
     unsigned int iter = 0;
     // Iterate over all atoms
     for(std::vector<AtomPtr>::iterator it_fa = atoms_.begin();
@@ -586,7 +607,7 @@ namespace assembly_sim
             if(mate->joint) {
               //if(female_mate_point->model->id == 0) {
                 //gzwarn<<" --- err linear: "<<twist_err.vel.Norm()<<" angular: "<<twist_err.rot.Norm()<<std::endl;
-              //}
+              //
 
               if(mate->joint->GetParent() and mate->joint->GetChild()) {
                 //gzwarn<<"Parts are mated!"<<std::endl;
@@ -597,6 +618,12 @@ namespace assembly_sim
                   // Detach joint
                   mate->joint->Detach();
                 }
+
+                if(publish_active_mates_) {
+                  mates_msg.female.push_back(mate->joint->GetParent()->GetName());
+                  mates_msg.male.push_back(mate->joint->GetChild()->GetName());
+                }
+
               } else {
                 //gzwarn<<"Parts are not mated!"<<std::endl;
                 if(twist_err.vel.Norm() < mate_model->attach_threshold_linear and
@@ -649,6 +676,10 @@ namespace assembly_sim
           }
         }
       }
+    }
+
+    if (publish_active_mates_) {
+      active_mates_pub_.publish(mates_msg);
     }
   }
 

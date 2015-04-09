@@ -15,6 +15,9 @@
       <!-- Frame that poses are broadcasted in -->
       <tf_world_frame>world</tf_world_frame>
 
+      <!-- do we want to publish a list of joined mates for analysis? -->
+      <!--<publish_active_mates>1</publish_active_mates>-->
+
       <!-- Mate Models -->
       <xacro:gbeam_mate
         linear_attach="0.004"

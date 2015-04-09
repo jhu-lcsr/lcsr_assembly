@@ -10,7 +10,6 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/format.hpp>
 
-
 #include <kdl/frames.hpp>
 
 namespace assembly_sim {
@@ -135,6 +134,10 @@ namespace assembly_sim {
       ros::Publisher male_mate_pub_;
       ros::Publisher female_mate_pub_;
 
+      // for broadcasting lists of mates
+      bool publish_active_mates_;
+      ros::Publisher active_mates_pub_;
+
     protected:
       size_t mate_id_counter_;
       size_t atom_id_counter_;
@@ -154,6 +157,7 @@ namespace assembly_sim {
       // for broadcasting coordinate transforms
       bool broadcast_tf_;
       std::string tf_world_frame_;
+
   };
 }
 
