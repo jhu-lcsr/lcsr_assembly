@@ -185,19 +185,19 @@ namespace assembly_sim
     }
 
     // are we going to publish ros messages describing mate status?
-    //sdf::ElementPtr publish_mate_elem = _sdf->GetElement("publish_active_mates");
-    //if (publish_mate_elem) {
-    //publish_mate_elem->GetValue()->Get(publish_active_mates_);
-    //if (publish_active_mates_) {
-    ros::NodeHandle nh;
-    active_mates_pub_ = nh.advertise<assembly_msgs::MateList>("active_mates",1000);
-    //gzwarn << "Publishing active mates!" << std::endl;
-    //} else {
-    //  gzwarn << "Not publishing active mates!" << std::endl;
-    //}
-    //} else {
-    //  gzerr << "Error reading publish active mates!" << std::endl;
-    //}
+    if(_sdf->HasElement("publish_active_mates")) {
+      sdf::ElementPtr publish_mate_elem = _sdf->GetElement("publish_active_mates");
+      if (publish_active_mates_) {
+        ros::NodeHandle nh;
+        active_mates_pub_ = nh.advertise<assembly_msgs::MateList>("active_mates",1000);
+        gzwarn << "Publishing active mates!" << std::endl;
+      } else {
+        gzwarn << "Not publishing active mates!" << std::endl;
+      }
+      publish_mate_elem->GetValue()->Get(publish_active_mates_);
+    } else {
+      gzwarn<<"No \"publish_active_mates\" element."<<std::endl;
+    } 
 
     // Get the description of the mates in this soup
     sdf::ElementPtr mate_elem = _sdf->GetElement("mate_model");
@@ -611,15 +611,14 @@ namespace assembly_sim
 
               if(mate->joint->GetParent() and mate->joint->GetChild()) {
                 //gzwarn<<"Parts are mated!"<<std::endl;
+                
                 if(twist_err.vel.Norm() > mate_model->detach_threshold_linear or
                    twist_err.rot.Norm() > mate_model->detach_threshold_angular)
                 {
                   gzwarn<<" --- demating "<<mate->joint->GetName()<<std::endl;
                   // Detach joint
                   mate->joint->Detach();
-                }
-
-                if(publish_active_mates_) {
+                } else if(publish_active_mates_) {
                   mates_msg.female.push_back(mate->joint->GetParent()->GetName());
                   mates_msg.male.push_back(mate->joint->GetChild()->GetName());
                 }
