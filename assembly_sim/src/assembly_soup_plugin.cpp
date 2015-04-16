@@ -161,7 +161,7 @@ namespace assembly_sim
     atom_id_counter_(0),
     tf_world_frame_("world"),
     broadcast_tf_(false),
-    publish_active_mates_(true)
+    publish_active_mates_(false)
   {
   }
 
