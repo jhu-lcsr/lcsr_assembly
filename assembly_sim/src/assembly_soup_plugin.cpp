@@ -161,7 +161,9 @@ namespace assembly_sim
     atom_id_counter_(0),
     tf_world_frame_("world"),
     broadcast_tf_(false),
-    publish_active_mates_(false)
+    publish_active_mates_(false),
+    last_tick_(0),
+    updates_per_second_(10)
   {
   }
 
@@ -187,6 +189,7 @@ namespace assembly_sim
     // are we going to publish ros messages describing mate status?
     if(_sdf->HasElement("publish_active_mates")) {
       sdf::ElementPtr publish_mate_elem = _sdf->GetElement("publish_active_mates");
+      publish_mate_elem->GetValue()->Get(publish_active_mates_);
       if (publish_active_mates_) {
         ros::NodeHandle nh;
         active_mates_pub_ = nh.advertise<assembly_msgs::MateList>("active_mates",1000);
@@ -194,10 +197,14 @@ namespace assembly_sim
       } else {
         gzwarn << "Not publishing active mates!" << std::endl;
       }
-      publish_mate_elem->GetValue()->Get(publish_active_mates_);
     } else {
       gzwarn<<"No \"publish_active_mates\" element."<<std::endl;
     } 
+
+    if(_sdf->HasElement("updates_per_second")) {
+      sdf::ElementPtr updates_per_second_elem = _sdf->GetElement("updates_per_second");
+      updates_per_second_elem->GetValue()->Get(updates_per_second_);
+    }
 
     // Get the description of the mates in this soup
     sdf::ElementPtr mate_elem = _sdf->GetElement("mate_model");
@@ -402,6 +409,26 @@ namespace assembly_sim
     // simulation iteration.
     this->updateConnection_ = gazebo::event::Events::ConnectWorldUpdateBegin(
         boost::bind(&AssemblySoup::OnUpdate, this, _1));
+
+    std::cout << "Starting thread..." << std::endl;
+    check_thread_ = boost::thread(boost::bind(&AssemblySoup::CheckCollisions, this));
+    std::cout << "Started." <<std::endl;
+  }
+
+  void AssemblySoup::CheckCollisions() {
+
+    std::cout << "Collision thread running!" << std::endl;
+
+    while (true) {
+
+      clock_t current_tick = clock();
+
+      if ((float)(current_tick - last_tick_) / CLOCKS_PER_SEC > 1.0 / updates_per_second_) {
+
+        //std::cout << "test: " << current_tick - last_tick_ << std::endl;
+        last_tick_ = clock();
+      }
+    }
   }
 
   // Called by the world update start event
@@ -412,6 +439,10 @@ namespace assembly_sim
     static tf::TransformBroadcaster br;
 
     assembly_msgs::MateList mates_msg;
+
+#if 0
+    clock_t current_tick = clock();
+#endif
 
     unsigned int iter = 0;
     // Iterate over all atoms
@@ -680,6 +711,10 @@ namespace assembly_sim
     if (publish_active_mates_) {
       active_mates_pub_.publish(mates_msg);
     }
+
+#if 0
+    std::cout<<"took " << (float)(clock() - current_tick) / CLOCKS_PER_SEC << " seconds" << std::endl;
+#endif
   }
 
   // Register this plugin with the simulator

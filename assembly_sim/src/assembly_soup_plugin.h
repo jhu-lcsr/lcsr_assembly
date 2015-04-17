@@ -9,6 +9,8 @@
 
 #include <boost/algorithm/string.hpp>
 #include <boost/format.hpp>
+#include <boost/thread.hpp>
+#include <boost/thread/locks.hpp>
 
 #include <kdl/frames.hpp>
 
@@ -138,6 +140,13 @@ namespace assembly_sim {
       bool publish_active_mates_;
       ros::Publisher active_mates_pub_;
 
+      // used to synchronize main update thread with check thread
+      boost::mutex update_mutex_;
+
+      // update thread
+      boost::thread check_thread_;
+      void CheckCollisions();
+
     protected:
       size_t mate_id_counter_;
       size_t atom_id_counter_;
@@ -157,6 +166,9 @@ namespace assembly_sim {
       // for broadcasting coordinate transforms
       bool broadcast_tf_;
       std::string tf_world_frame_;
+
+      clock_t last_tick_;
+      int updates_per_second_;
 
   };
 }
