@@ -101,9 +101,13 @@ namespace assembly_sim
       MatePointModelPtr male_mate_point_model,
       AtomPtr female_atom,
       AtomPtr male_atom) :
+    female(female_atom),
+    male(male_atom),
     joint_sdf(),
     joint()
   {
+    std::cout << male_atom->link->GetName() << std::endl;
+    std::cout << female_atom->link->GetName() << std::endl;
     gzwarn<<"Creating joint for mate type: "
       <<female_mate_point_model->model->type<<" "
       <<female_atom->link->GetName()
@@ -163,7 +167,8 @@ namespace assembly_sim
     broadcast_tf_(false),
     publish_active_mates_(false),
     last_tick_(0),
-    updates_per_second_(10)
+    updates_per_second_(10),
+    running_(false)
   {
   }
 
@@ -409,40 +414,13 @@ namespace assembly_sim
     // simulation iteration.
     this->updateConnection_ = gazebo::event::Events::ConnectWorldUpdateBegin(
         boost::bind(&AssemblySoup::OnUpdate, this, _1));
-
-    std::cout << "Starting thread..." << std::endl;
-    check_thread_ = boost::thread(boost::bind(&AssemblySoup::CheckCollisions, this));
-    std::cout << "Started." <<std::endl;
   }
 
-  void AssemblySoup::CheckCollisions() {
-
-    std::cout << "Collision thread running!" << std::endl;
-
-    while (true) {
-
-      clock_t current_tick = clock();
-
-      if ((float)(current_tick - last_tick_) / CLOCKS_PER_SEC > 1.0 / updates_per_second_) {
-
-        //std::cout << "test: " << current_tick - last_tick_ << std::endl;
-        last_tick_ = clock();
-      }
-    }
-  }
-
-  // Called by the world update start event
-  // This is where the logic that connects and updates joints needs to happen
-  void AssemblySoup::OnUpdate(const gazebo::common::UpdateInfo & /*_info*/)
-  {
+  void AssemblySoup::DoCollisionCheck() {
 
     static tf::TransformBroadcaster br;
 
     assembly_msgs::MateList mates_msg;
-
-#if 0
-    clock_t current_tick = clock();
-#endif
 
     unsigned int iter = 0;
     // Iterate over all atoms
@@ -604,6 +582,7 @@ namespace assembly_sim
             if(mtf == mate_table_.end())
             {
               // This female mate point needs to be added
+              std::cout<<"adding female"<<std::endl;
               mate_point_map_t mate_point_map;
               mate = boost::make_shared<Mate>(
                   model_,
@@ -613,10 +592,12 @@ namespace assembly_sim
                   male_atom);
               mate_point_map[male_mate_point] = mate;
               mate_table_[female_mate_point] = mate_point_map;
+              std::cout<<"done adding female"<<std::endl;
             }
             else if(mtf->second.find(male_mate_point) == mtf->second.end())
             {
               // This male mate point needs to be added
+              std::cout<<"adding male"<<std::endl;
               mate = boost::make_shared<Mate>(
                   model_,
                   female_mate_point->model,
@@ -625,6 +606,7 @@ namespace assembly_sim
                   male_atom);
 
               mtf->second[male_mate_point] = mate;
+              std::cout<<"done  adding male"<<std::endl;
             }
             else
             {
@@ -646,9 +628,8 @@ namespace assembly_sim
                 if(twist_err.vel.Norm() > mate_model->detach_threshold_linear or
                    twist_err.rot.Norm() > mate_model->detach_threshold_angular)
                 {
-                  gzwarn<<" --- demating "<<mate->joint->GetName()<<std::endl;
-                  // Detach joint
-                  mate->joint->Detach();
+                  mates_to_detach.push_back(mate);
+
                 } else if(publish_active_mates_) {
                   mates_msg.female.push_back(mate->joint->GetParent()->GetName());
                   mates_msg.male.push_back(mate->joint->GetChild()->GetName());
@@ -659,22 +640,7 @@ namespace assembly_sim
                 if(twist_err.vel.Norm() < mate_model->attach_threshold_linear and
                    twist_err.rot.Norm() < mate_model->attach_threshold_angular)
                 {
-                  gzwarn<<" --- mating "<<mate->joint->GetName()<<std::endl;
-
-                  // attach joint
-                  mate->joint->Attach(female_atom->link, male_atom->link);
-                  gazebo::math::Pose initial_anchor_pose = mate->joint->GetInitialAnchorPose();
-                  gazebo::math::Pose anchor_pose;
-                  KDL::Frame initial_anchor_frame;
-
-                  to_kdl(initial_anchor_pose, initial_anchor_frame);
-                  to_gazebo(male_atom_frame*initial_anchor_frame, anchor_pose);
-
-                  // Set the anchor position (location of the joint)
-                  // This is in the WORLD frame
-                  mate->joint->SetAnchor(0, anchor_pose.pos);
-
-                  gzwarn<<" --- joint pose: "<<std::endl<<initial_anchor_frame<<std::endl;
+                  mates_to_attach.push_back(mate);
                 }
               }
 
@@ -712,12 +678,94 @@ namespace assembly_sim
       active_mates_pub_.publish(mates_msg);
     }
 
-#if 0
-    std::cout<<"took " << (float)(clock() - current_tick) / CLOCKS_PER_SEC << " seconds" << std::endl;
-#endif
+  }
+
+  AssemblySoup::~AssemblySoup() {
+    running_ = false;
+    check_thread_.join();
+  }
+
+  void AssemblySoup::CheckCollisions() {
+
+    std::cout << "Collision thread running!" << std::endl;
+
+    while (running_) {
+
+      clock_t current_tick = clock();
+
+      if ((float)(current_tick - last_tick_) / CLOCKS_PER_SEC > 1.0 / updates_per_second_) {
+
+        update_mutex_.lock();
+
+        // clear mates
+        mates_to_attach.resize(0);
+        mates_to_detach.resize(0);
+
+        DoCollisionCheck();
+        update_mutex_.unlock();
+
+        last_tick_ = clock();
+      }
+    }
+  }
+
+  // Called by the world update start event
+  // This is where the logic that connects and updates joints needs to happen
+  void AssemblySoup::OnUpdate(const gazebo::common::UpdateInfo & /*_info*/)
+  {
+
+    if (!running_) {
+
+      DoCollisionCheck();
+
+      std::cout << "Starting thread..." << std::endl;
+      check_thread_ = boost::thread(boost::bind(&AssemblySoup::CheckCollisions, this));
+      running_ = true;
+      std::cout << "Started." <<std::endl;
+    }
+
+    if (update_mutex_.try_lock()) {
+
+      for (std::vector<MatePtr>::iterator it = mates_to_detach.begin();
+           it != mates_to_detach.end();
+           ++it)
+      {
+        MatePtr mate = *it;
+        gzwarn<<" --- demating "<<mate->joint->GetName()<<std::endl;
+        // Detach joint
+        mate->joint->Detach();
+      }
+      for (std::vector<MatePtr>::iterator it = mates_to_attach.begin();
+           it != mates_to_attach.end();
+           ++it)
+      {
+        MatePtr mate = *it;
+        gzwarn<<" --- mating "<<mate->joint->GetName()<<std::endl;
+
+        KDL::Frame male_atom_frame;
+        to_kdl(mate->male->link->GetWorldPose(), male_atom_frame);
+
+        // attach joint
+        mate->joint->Attach(mate->female->link, mate->male->link);
+        gazebo::math::Pose initial_anchor_pose = mate->joint->GetInitialAnchorPose();
+        gazebo::math::Pose anchor_pose;
+        KDL::Frame initial_anchor_frame;
+
+        to_kdl(initial_anchor_pose, initial_anchor_frame);
+        to_gazebo(male_atom_frame*initial_anchor_frame, anchor_pose);
+
+        // Set the anchor position (location of the joint)
+        // This is in the WORLD frame
+        mate->joint->SetAnchor(0, anchor_pose.pos);
+
+        gzwarn<<" --- joint pose: "<<std::endl<<initial_anchor_frame<<std::endl;
+      }
+
+      update_mutex_.unlock();
+    }
   }
 
   // Register this plugin with the simulator
-  GZ_REGISTER_MODEL_PLUGIN(AssemblySoup)
+  GZ_REGISTER_MODEL_PLUGIN(AssemblySoup);
 }
 

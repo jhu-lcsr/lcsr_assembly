@@ -95,6 +95,9 @@ namespace assembly_sim {
     // Joint associated with mate
     // If this is NULL then the mate is unoccupied
     gazebo::physics::JointPtr joint;
+
+    AtomPtr female;
+    AtomPtr male;
   };
 
   // A point where a mate can be created
@@ -124,6 +127,7 @@ namespace assembly_sim {
       AssemblySoup();
       void Load(gazebo::physics::ModelPtr _parent, sdf::ElementPtr _sdf);
       void OnUpdate(const gazebo::common::UpdateInfo & /*_info*/);
+      ~AssemblySoup();
 
       // Pointer to the model
     private:
@@ -146,6 +150,12 @@ namespace assembly_sim {
       // update thread
       boost::thread check_thread_;
       void CheckCollisions();
+      void DoCollisionCheck(); // run one collision check
+      bool running_;
+
+      // mates to attach/detach in OnUpdate thread
+      std::vector<MatePtr> mates_to_attach;
+      std::vector<MatePtr> mates_to_detach;
 
     protected:
       size_t mate_id_counter_;
