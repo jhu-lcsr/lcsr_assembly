@@ -17,25 +17,98 @@
           <izz>0.001</izz>
         </inertia>
       </inertial>
-      <collision name='collision'>
-        <geometry>
-          <mesh><uri>file://$(find gbeam_model)/meshes/gbeam_link_5k.stl</uri></mesh>
-        </geometry>
-        <surface>
-          <friction>
-            <ode>
-              <mu>1.0</mu>
-              <mu2>0.7</mu2>
-            </ode>
-          </friction>
-          <contact>
-            <ode>
-              <soft_cfm>0.01</soft_cfm>
-              <soft_erp>0.05</soft_erp>
-            </ode>
-          </contact>
-        </surface>
-      </collision>
+      <xacro:unless value="true">
+        <collision name='collision'>
+          <!-- use full scanned collision mesh -->
+          <geometry>
+            <mesh><uri>file://$(find gbeam_model)/meshes/gbeam_link_5k.stl</uri></mesh>
+          </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>1.0</mu>
+                <mu2>0.7</mu2>
+              </ode>
+            </friction>
+            <contact>
+              <ode>
+                <soft_cfm>0.01</soft_cfm>
+                <soft_erp>0.05</soft_erp>
+              </ode>
+            </contact>
+          </surface>
+        </collision>
+      </xacro:unless>
+      <xacro:if value="true">
+        <collision name='gbeam_link_collision'>
+          <pose>0 0 0 0 -0 0</pose>
+          <geometry>
+            <box>
+              <size>0.035 0.24 0.035</size>
+            </box>
+          </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>1.0</mu>
+                <mu2>0.7</mu2>
+              </ode>
+            </friction>
+            <contact>
+              <ode>
+                <soft_cfm>0.01</soft_cfm>
+                <soft_erp>0.05</soft_erp>
+              </ode>
+            </contact>
+          </surface>
+        </collision>
+        <collision name='gbeam_link_collision_gbeam_link_1'>
+          <pose>0 0.115 0 1.5707 -0 0</pose>
+          <geometry>
+            <cylinder>
+              <length>0.0127</length>
+              <radius>0.028</radius>
+            </cylinder>
+          </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>1.0</mu>
+                <mu2>0.7</mu2>
+              </ode>
+            </friction>
+            <contact>
+              <ode>
+                <soft_cfm>0.01</soft_cfm>
+                <soft_erp>0.05</soft_erp>
+              </ode>
+            </contact>
+          </surface>
+        </collision>
+        <collision name='gbeam_link_collision_gbeam_link_2'>
+          <pose>0 -0.115 0 1.5707 -0 0</pose>
+          <geometry>
+            <cylinder>
+              <length>0.0127</length>
+              <radius>0.028</radius>
+            </cylinder>
+          </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>1.0</mu>
+                <mu2>0.7</mu2>
+              </ode>
+            </friction>
+            <contact>
+              <ode>
+                <soft_cfm>0.01</soft_cfm>
+                <soft_erp>0.05</soft_erp>
+              </ode>
+            </contact>
+          </surface>
+        </collision>
+      </xacro:if>
 
       <visual name='visual'>
         <geometry>
