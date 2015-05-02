@@ -416,7 +416,7 @@ namespace assembly_sim
         boost::bind(&AssemblySoup::OnUpdate, this, _1));
   }
 
-  void AssemblySoup::DoCollisionCheck() {
+  void AssemblySoup::DoProximityCheck() {
 
     static tf::TransformBroadcaster br;
 
@@ -685,7 +685,7 @@ namespace assembly_sim
     check_thread_.join();
   }
 
-  void AssemblySoup::CheckCollisions() {
+  void AssemblySoup::CheckProximityLoop() {
 
     std::cout << "Collision thread running!" << std::endl;
 
@@ -701,7 +701,7 @@ namespace assembly_sim
         mates_to_attach.resize(0);
         mates_to_detach.resize(0);
 
-        DoCollisionCheck();
+        DoProximityCheck();
         update_mutex_.unlock();
 
         last_tick_ = clock();
@@ -716,10 +716,10 @@ namespace assembly_sim
 
     if (!running_) {
 
-      DoCollisionCheck();
+      DoProximityCheck();
 
       std::cout << "Starting thread..." << std::endl;
-      check_thread_ = boost::thread(boost::bind(&AssemblySoup::CheckCollisions, this));
+      check_thread_ = boost::thread(boost::bind(&AssemblySoup::CheckProximityLoop, this));
       running_ = true;
       std::cout << "Started." <<std::endl;
     }

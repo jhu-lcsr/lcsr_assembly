@@ -149,8 +149,8 @@ namespace assembly_sim {
 
       // update thread
       boost::thread check_thread_;
-      void CheckCollisions();
-      void DoCollisionCheck(); // run one collision check
+      void CheckProximityLoop();
+      void DoProximityCheck(); // run one collision check
       bool running_;
 
       // mates to attach/detach in OnUpdate thread
