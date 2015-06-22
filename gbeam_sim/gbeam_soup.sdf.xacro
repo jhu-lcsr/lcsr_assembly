@@ -3,19 +3,10 @@
   <xacro:include filename="$(find gbeam_sim)/gbeam_def.sdf.xacro"/>
 
   <model name="gbeam_soup">
-    <plugin name='hand_of_god' filename="libgazebo_ros_hand_of_god.so">
-      <frameId>hog</frameId>
-      <linkName>hog</linkName>
-      <kl>400</kl>
-      <ka>200</ka>
-    </plugin>
-
     <plugin name="assembly_soup" filename="libassembly_soup_plugin.so">
-
       <!-- Frame that poses are broadcasted in -->
       <tf_world_frame>world</tf_world_frame>
-
-      <!-- do we want to publish a list of joined mates for analysis? -->
+      <!--Publish a list of joined mates for analysis -->
       <publish_active_mates>1</publish_active_mates>
 
       <!-- Mate Models -->
@@ -25,53 +16,16 @@
         linear_detach="0.015"
         angular_detach="0.2"/>
 
-      <!-- Experimental: add a mate point to the hog -->
-      <atom_model type="hog">
-        <mate_point type="gbeam" gender="female">
-          <pose>0 0.025 0 ${pi/2} 0 0</pose>
-        </mate_point>
-        <mate_point type="gbeam" gender="female">
-          <pose>0 -0.025 0 ${pi/2} 0 ${pi}</pose>
-        </mate_point>
-        <mate_point type="gbeam" gender="female">
-          <pose>0 0 0.025 ${pi} 0 0</pose>
-        </mate_point>
-        <mate_point type="gbeam" gender="female">
-          <pose>0 0 -0.025 0 0 0</pose>
-        </mate_point>
-        <mate_point type="gbeam" gender="female">
-          <pose>0.025 0 0 0 -${pi/2.0} 0</pose>
-        </mate_point>
-        <mate_point type="gbeam" gender="female">
-          <pose>-0.025 0 0 0 ${pi/2.0} 0</pose>
-        </mate_point>
-
-        <mate_point type="gbeam" gender="male">
-          <pose>0 -0.025 0 ${pi/2} 0 0</pose>
-        </mate_point>
-        <mate_point type="gbeam" gender="male">
-          <pose>0 0.025 0 ${pi/2} 0 ${pi}</pose>
-        </mate_point>
-        <mate_point type="gbeam" gender="male">
-          <pose>0 0 -0.025 ${pi} 0 0</pose>
-        </mate_point>
-        <mate_point type="gbeam" gender="male">
-          <pose>0 0 0.025 0 0 0</pose>
-        </mate_point>
-        <mate_point type="gbeam" gender="male">
-          <pose>-0.025 0 0 0 -${pi/2.0} 0</pose>
-        </mate_point>
-        <mate_point type="gbeam" gender="male">
-          <pose>0.025 0 0 0 ${pi/2.0} 0</pose>
-        </mate_point>
-      </atom_model>
-
       <!-- Atom Models -->
       <xacro:gbeam_link_atom/>
       <xacro:gbeam_node_atom/>
-
+      <xacro:gbeam_hog_atom/>
     </plugin>
 
+    <!-- By adding a HOG to the soup, you can interact with the objects via mate points -->
+    <xacro:gbeam_hog pose="0 0 0.4 0 0 0"/>
+
+    <!-- Create the initial scene made of links and nodes -->
     <xacro:gbeam_node suffix="_1" pose="0 0.3 0.1 0 0 0"/>
     <xacro:gbeam_node suffix="_2" pose="0 0.3 0.2 0 0 0"/>
     <xacro:gbeam_node suffix="_3" pose="0 0.3 0.3 0 0 0"/>
@@ -84,28 +38,6 @@
     <!--<xacro:gbeam_link suffix="_4" pose="0 0.1 0.3 0 0 0"/>-->
     <!--<xacro:gbeam_link suffix="_5" pose="0 0.1 0.4 0 0 0"/>-->
 
-    <link name ='hog'>
-      <self_collide>1</self_collide>
-      <pose>0 0 0.4 0 0 0</pose>
-      <collision name ='collision'>
-        <geometry>
-          <sphere><radius>0.025</radius></sphere>
-        </geometry>
-      </collision>
-      <visual name ='visual'>
-        <geometry>
-          <sphere><radius>0.025</radius></sphere>
-        </geometry>
-      </visual>
-      <inertial>
-        <mass>0.3</mass>
-        <inertia>
-          <ixx>0.001</ixx><ixy>0</ixy>    <ixz>0</ixz>
-          <iyy>0.001</iyy><iyz>0</iyz>
-          <izz>0.001</izz>
-        </inertia>
-      </inertial>
-    </link>
   </model>
 </sdf>
 
