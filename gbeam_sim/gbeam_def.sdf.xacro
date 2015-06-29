@@ -27,14 +27,19 @@
           <surface>
             <friction>
               <ode>
-                <mu>1.0</mu>
-                <mu2>0.7</mu2>
+                <mu>0.7</mu>
+                <!--<mu2>0.7</mu2>-->
               </ode>
             </friction>
+            <bounce>
+              <restitution_coefficient>0.0</restitution_coefficient>
+            </bounce>
             <contact>
               <ode>
                 <soft_cfm>0.01</soft_cfm>
                 <soft_erp>0.05</soft_erp>
+                <kp>50000</kp>
+                <kd>8</kd>
               </ode>
             </contact>
           </surface>
@@ -45,37 +50,44 @@
           <pose>0 0 0 0 -0 0</pose>
           <geometry>
             <box>
-              <size>0.035 0.24 0.035</size>
+              <size>0.035 ${0.24+0.004} 0.035</size>
             </box>
           </geometry>
           <surface>
             <friction>
               <ode>
-                <mu>1.0</mu>
-                <mu2>0.7</mu2>
+                <mu>0.7</mu>
+                <!--<mu2>0.7</mu2>-->
               </ode>
             </friction>
+            <bounce>
+              <restitution_coefficient>0.0</restitution_coefficient>
+            </bounce>
             <contact>
               <ode>
                 <soft_cfm>0.01</soft_cfm>
                 <soft_erp>0.05</soft_erp>
+                <kp>50000</kp>
+                <kd>8</kd>
               </ode>
             </contact>
           </surface>
         </collision>
         <collision name='gbeam_link_collision_gbeam_link_1'>
-          <pose>0 0.115 0 1.5707 -0 0</pose>
+          <pose>0 ${0.115-0.00635/2.0} 0 1.5707 -0 0</pose>
           <geometry>
             <cylinder>
-              <length>0.0127</length>
+              <length>0.00635</length>
               <radius>0.028</radius>
             </cylinder>
           </geometry>
           <surface>
             <friction>
               <ode>
-                <mu>1.0</mu>
-                <mu2>0.7</mu2>
+                <mu>1.7</mu>
+                <!--<mu2>0.7</mu2>-->
+                <slip1>1.0</slip1>
+                <slip2>1.0</slip2>
               </ode>
             </friction>
             <contact>
@@ -87,24 +99,31 @@
           </surface>
         </collision>
         <collision name='gbeam_link_collision_gbeam_link_2'>
-          <pose>0 -0.115 0 1.5707 -0 0</pose>
+          <pose>0 ${-0.115+0.00635/2.0} 0 1.5707 -0 0</pose>
           <geometry>
             <cylinder>
-              <length>0.0127</length>
+              <length>0.00635</length>
               <radius>0.028</radius>
             </cylinder>
           </geometry>
           <surface>
             <friction>
               <ode>
-                <mu>1.0</mu>
-                <mu2>0.7</mu2>
+                <mu>1.7</mu>
+                <slip1>1.0</slip1>
+                <slip2>1.0</slip2>
+                <!--<mu2>0.7</mu2>-->
               </ode>
             </friction>
+            <bounce>
+              <restitution_coefficient>0.0</restitution_coefficient>
+            </bounce>
             <contact>
               <ode>
                 <soft_cfm>0.01</soft_cfm>
-                <soft_erp>0.05</soft_erp>
+                <soft_erp>0.02</soft_erp>
+                <kp>50000</kp>
+                <kd>8</kd>
               </ode>
             </contact>
           </surface>
@@ -112,8 +131,14 @@
       </xacro:if>
 
       <visual name='visual'>
+        <material>
+          <ambient>0.6 0.6 0.6 1</ambient>
+          <diffuse>0.5 0.5 0.5 1</diffuse>
+          <specular>1.0 1.0 1.0 1</specular>
+          <emissive>0 0 0 0</emissive>
+        </material>
         <geometry>
-          <mesh><uri>file://$(find gbeam_model)/meshes/gbeam_link_5k.stl</uri></mesh>
+          <mesh><uri>file://$(find gbeam_model)/meshes/gbeam_link_visual.dae</uri></mesh>
         </geometry>
       </visual>
     </link>
@@ -137,27 +162,39 @@
 
       <collision name='collision'>
         <geometry>
-          <mesh><uri>file://$(find gbeam_model)/meshes/gbeam_node_5k.stl</uri></mesh>
+          <!--<mesh><uri>file://$(find gbeam_model)/meshes/gbeam_node_5k.stl</uri></mesh>-->
+          <box><size>0.056 0.056 0.056</size></box>
         </geometry>
         <surface>
           <friction>
             <ode>
               <mu>0.5</mu>
-              <mu2>0.5</mu2>
+              <!--<mu2>0.5</mu2>-->
             </ode>
           </friction>
+          <bounce>
+            <restitution_coefficient>0.0</restitution_coefficient>
+          </bounce>
           <contact>
             <ode>
               <soft_cfm>0.01</soft_cfm>
-              <soft_erp>0.05</soft_erp>
+              <soft_erp>0.02</soft_erp>
+              <kp>50000</kp>
+              <kd>8</kd>
             </ode>
           </contact>
         </surface>
       </collision>
 
       <visual name='visual'>
+        <material>
+          <ambient>0.3 0.3 0.3 1</ambient>
+          <diffuse>0.5 0.5 0.5 1</diffuse>
+          <specular>1.0 1.0 1.0 1</specular>
+          <emissive>0 0 0 0</emissive>
+        </material>
         <geometry>
-          <mesh><uri>file://$(find gbeam_model)/meshes/gbeam_node_5k.stl</uri></mesh>
+          <mesh><uri>file://$(find gbeam_model)/meshes/gbeam_node_visual.dae</uri></mesh>
         </geometry>
       </visual>
     </link>
@@ -220,7 +257,10 @@
           <child>gbeam_node</child>
           <axis>
             <xyz>0 1 0</xyz>
-            <limit><lower>-0.001</lower><upper>0.001</upper></limit>
+            <limit>
+              <lower>-0.001</lower>
+              <upper>0.001</upper>
+            </limit>
           </axis>
           <physics>
             <ode>
@@ -228,8 +268,8 @@
               <cfm>0.01</cfm>
               <erp>0.05</erp>
               <limit>
-                <cfm>0.1</cfm>
-                <erp>0.5</erp>
+                <cfm>0.05</cfm>
+                <erp>0.05</erp>
               </limit>
             </ode>
           </physics>
@@ -241,10 +281,10 @@
   <xacro:macro name="gbeam_link_atom" params="">
     <atom_model type="gbeam_link">
       <mate_point type="gbeam" gender="male">
-        <pose>0 0.125 0 ${pi/2} ${pi/4} ${pi}</pose>
+        <pose>0 0.126 0 ${pi/2} ${pi/4} ${pi}</pose>
       </mate_point>
       <mate_point type="gbeam" gender="male">
-        <pose>0 -0.125 0 ${pi/2} ${pi/4} 0</pose>
+        <pose>0 -0.126 0 ${pi/2} ${pi/4} 0</pose>
       </mate_point>
     </atom_model>
   </xacro:macro>

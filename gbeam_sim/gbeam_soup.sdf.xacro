@@ -13,8 +13,8 @@
       <xacro:gbeam_mate
         linear_attach="0.004"
         angular_attach="0.1"
-        linear_detach="0.015"
-        angular_detach="0.2"/>
+        linear_detach="0.008"
+        angular_detach="0.15"/>
 
       <!-- Atom Models -->
       <xacro:gbeam_link_atom/>
