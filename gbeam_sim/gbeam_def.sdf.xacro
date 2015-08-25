@@ -11,11 +11,11 @@
       <pose>${pose}</pose>
 
       <inertial>
-        <mass>0.3</mass>
+        <mass>0.2</mass>
         <inertia>
-          <ixx>0.001</ixx><ixy>0</ixy>    <ixz>0</ixz>
-          <iyy>0.002</iyy><iyz>0</iyz>
-          <izz>0.001</izz>
+          <ixx>0.0001</ixx><ixy>0</ixy>    <ixz>0</ixz>
+          <iyy>0.0002</iyy><iyz>0</iyz>
+          <izz>0.0001</izz>
         </inertia>
       </inertial>
       <xacro:unless value="true">
@@ -152,11 +152,11 @@
       <pose>${pose}</pose>
 
       <inertial>
-        <mass>0.2</mass>
+        <mass>0.1</mass>
         <inertia>
-          <ixx>0.001</ixx><ixy>0</ixy>    <ixz>0</ixz>
-          <iyy>0.001</iyy><iyz>0</iyz>
-          <izz>0.001</izz>
+          <ixx>5.22E-5</ixx><ixy>0</ixy>    <ixz>0</ixz>
+          <iyy>5.22E-5</iyy><iyz>0</iyz>
+          <izz>5.22E-5</izz>
         </inertia>
       </inertial>
 
@@ -266,10 +266,10 @@
             <ode>
               <cfm_damping>true</cfm_damping>
               <cfm>0.01</cfm>
-              <erp>0.05</erp>
+              <erp>0.03</erp>
               <limit>
                 <cfm>0.05</cfm>
-                <erp>0.05</erp>
+                <erp>0.03</erp>
               </limit>
             </ode>
           </physics>
