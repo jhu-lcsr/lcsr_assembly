@@ -97,12 +97,14 @@ namespace assembly_sim
 {
   Mate::Mate(
       gazebo::physics::ModelPtr gazebo_model,
-      MatePointModelPtr female_mate_point_model,
-      MatePointModelPtr male_mate_point_model,
+      MatePointModelPtr female_mate_point_model_,
+      MatePointModelPtr male_mate_point_model_,
       AtomPtr female_atom,
       AtomPtr male_atom) :
     female(female_atom),
     male(male_atom),
+    female_mate_point_model(female_mate_point_model_),
+    male_mate_point_model(male_mate_point_model_),
     joint_sdf(),
     joint()
   {
@@ -571,9 +573,6 @@ namespace assembly_sim
             // Skip if the mates are incompatible
             if(female_mate_point->model->model != male_mate_point->model->model) { continue; }
 
-            // Compute the world pose of the male mate frame
-            KDL::Frame male_mate_frame = male_atom_frame * male_mate_point->model->pose;
-
             // Get the mate between these two mate points
             MatePtr mate;
             MateModelPtr mate_model = female_mate_point->model->model;
@@ -614,14 +613,18 @@ namespace assembly_sim
               mate = mtf->second.at(male_mate_point);
             }
 
+            // Compute the world pose of the male mate frame
+            // This takes into account the attachment displacement (anchor_offset)
+            KDL::Frame male_mate_frame = male_atom_frame * male_mate_point->model->pose * mate->anchor_offset;
+
             // compute twist between the two mate points
             KDL::Twist twist_err = diff(female_mate_frame, male_mate_frame);
 
+            // Only analyze mates with associated joints
             if(mate->joint) {
-              //if(female_mate_point->model->id == 0) {
-                //gzwarn<<" --- err linear: "<<twist_err.vel.Norm()<<" angular: "<<twist_err.rot.Norm()<<std::endl;
-              //
+              //if(female_mate_point->model->id == 0) gzwarn<<" --- err linear: "<<twist_err.vel.Norm()<<" angular: "<<twist_err.rot.Norm()<<std::endl;
 
+              // Determine if mated atoms need to be detached
               if(mate->joint->GetParent() and mate->joint->GetChild()) {
                 //gzwarn<<"Parts are mated!"<<std::endl;
                 
@@ -742,21 +745,31 @@ namespace assembly_sim
         MatePtr mate = *it;
         gzwarn<<" --- mating "<<mate->joint->GetName()<<std::endl;
 
+        // Get the male atom frame
         KDL::Frame male_atom_frame;
         to_kdl(mate->male->link->GetWorldPose(), male_atom_frame);
 
-        // attach joint
+        // attach two atoms via joint
         mate->joint->Attach(mate->female->link, mate->male->link);
-        gazebo::math::Pose initial_anchor_pose = mate->joint->GetInitialAnchorPose();
-        gazebo::math::Pose anchor_pose;
-        KDL::Frame initial_anchor_frame;
 
-        to_kdl(initial_anchor_pose, initial_anchor_frame);
-        to_gazebo(male_atom_frame*initial_anchor_frame, anchor_pose);
+        // get the location of the joint in the child (male atom) frame, as specified by the SDF
+        KDL::Frame initial_anchor_frame, actual_anchor_frame;
+        to_kdl(mate->joint->GetInitialAnchorPose(), initial_anchor_frame);
+        actual_anchor_frame = male_atom_frame*initial_anchor_frame;
 
         // Set the anchor position (location of the joint)
         // This is in the WORLD frame
-        mate->joint->SetAnchor(0, anchor_pose.pos);
+        // IMPORTANT: This avoids injecting energy into the system in the form of a constraint violation
+        gazebo::math::Pose actual_anchor_pose;
+        to_gazebo(actual_anchor_frame, actual_anchor_pose);
+        mate->joint->SetAnchor(0, actual_anchor_pose.pos);
+
+        // Save the anchor offset (mate point to anchor)
+        mate->anchor_offset = (
+            actual_anchor_frame.Inverse() *   // anchor to world
+            male_atom_frame *                 // world to atom
+            mate->male_mate_point_model->pose // atom to mate point
+            ).Inverse();
 
         gzwarn<<" --- joint pose: "<<std::endl<<initial_anchor_frame<<std::endl;
       }

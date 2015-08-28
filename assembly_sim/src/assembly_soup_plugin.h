@@ -85,8 +85,8 @@ namespace assembly_sim {
     // TODO add constructor that does lines 300-326 from the cpp file
     Mate(
       gazebo::physics::ModelPtr gazebo_model,
-      MatePointModelPtr female_mate_point_model,
-      MatePointModelPtr male_mate_point_model,
+      MatePointModelPtr female_mate_point_model_,
+      MatePointModelPtr male_mate_point_model_,
       AtomPtr female_atom,
       AtomPtr male_atom);
 
@@ -96,8 +96,18 @@ namespace assembly_sim {
     // If this is NULL then the mate is unoccupied
     gazebo::physics::JointPtr joint;
 
+    // Atoms associated with this mate
     AtomPtr female;
     AtomPtr male;
+
+    // Mate point models
+    MatePointModelPtr female_mate_point_model;
+    MatePointModelPtr male_mate_point_model;
+
+    // The pose of the joint anchor point relative to the mate point.
+    // This gets set each time two atoms are mated, and enables joints
+    // to be consistently strong.
+    KDL::Frame anchor_offset;
   };
 
   // A point where a mate can be created
