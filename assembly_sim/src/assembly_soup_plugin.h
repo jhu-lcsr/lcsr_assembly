@@ -96,6 +96,10 @@ namespace assembly_sim {
     // If this is NULL then the mate is unoccupied
     gazebo::physics::JointPtr joint;
 
+    // Max erp
+    double max_stop_erp;
+    double max_erp;
+
     // Atoms associated with this mate
     AtomPtr female;
     AtomPtr male;
@@ -108,6 +112,7 @@ namespace assembly_sim {
     // This gets set each time two atoms are mated, and enables joints
     // to be consistently strong.
     KDL::Frame anchor_offset;
+    KDL::Twist mate_error;
   };
 
   // A point where a mate can be created

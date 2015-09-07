@@ -3,10 +3,35 @@
   <xacro:property name="pi" value="3.14159265"/>
 
   <!-- GBeam links -->
-  <xacro:macro name="gbeam_link" params="suffix pose">
-    <link name="gbeam_link${suffix}">
-      <gravity>1</gravity>
-      <self_collide>1</self_collide>
+  <xacro:macro name="gbeam_link" params="prefix suffix pose fixed">
+    <xacro:if value="${fixed}">
+      <joint name="${prefix}gbeam_link${suffix}_anchor" type="revolute">
+        <pose>0 0 0 0 0 0</pose>
+        <parent>world</parent>
+        <child>${prefix}gbeam_link${suffix}</child>
+        <axis>
+          <xyz>0 0 1</xyz>
+          <limit>
+            <lower>0</lower>
+            <upper>0</upper>
+          </limit>
+          <dynamics>
+            <damping>0</damping>
+          </dynamics>
+        </axis>
+      </joint>
+    </xacro:if>
+
+    <link name="${prefix}gbeam_link${suffix}">
+
+      <xacro:if value="${fixed}">
+        <gravity>0</gravity>
+        <self_collide>0</self_collide>
+      </xacro:if>
+      <xacro:unless value="${fixed}">
+        <gravity>1</gravity>
+        <self_collide>1</self_collide>
+      </xacro:unless>
 
       <pose>${pose}</pose>
 
@@ -144,10 +169,35 @@
     </link>
   </xacro:macro>
 
-  <xacro:macro name="gbeam_node" params="suffix pose">
-    <link name="gbeam_node${suffix}">
-      <gravity>1</gravity>
-      <self_collide>1</self_collide>
+  <xacro:macro name="gbeam_node" params="prefix suffix pose fixed">
+    <xacro:if value="${fixed}">
+      <joint name="${prefix}gbeam_node${suffix}_anchor" type="revolute">
+        <pose>0 0 0 0 0 0</pose>
+        <parent>world</parent>
+        <child>${prefix}gbeam_node${suffix}</child>
+        <axis>
+          <xyz>0 0 1</xyz>
+          <limit>
+            <lower>0</lower>
+            <upper>0</upper>
+          </limit>
+          <dynamics>
+            <damping>0</damping>
+          </dynamics>
+        </axis>
+      </joint>
+    </xacro:if>
+
+    <link name="${prefix}gbeam_node${suffix}">
+
+      <xacro:if value="${fixed}">
+        <gravity>0</gravity>
+        <self_collide>0</self_collide>
+      </xacro:if>
+      <xacro:unless value="${fixed}">
+        <gravity>1</gravity>
+        <self_collide>1</self_collide>
+      </xacro:unless>
 
       <pose>${pose}</pose>
 
@@ -212,12 +262,12 @@
       <pose>${pose}</pose>
       <collision name ='collision'>
         <geometry>
-          <sphere><radius>0.025</radius></sphere>
+          <sphere><radius>0.028</radius></sphere>
         </geometry>
       </collision>
       <visual name ='visual'>
         <geometry>
-          <sphere><radius>0.025</radius></sphere>
+          <sphere><radius>0.028</radius></sphere>
         </geometry>
       </visual>
       <inertial>
@@ -252,7 +302,7 @@
         </detach_threshold>
 
         <joint type="prismatic" name="gbeam">
-          <pose>0 0.025 0 0 ${pi/2} 0</pose>
+          <pose>0 0.028 0 0 ${pi/2} 0</pose>
           <parent>gbeam_link</parent>
           <child>gbeam_node</child>
           <axis>
@@ -261,15 +311,18 @@
               <lower>-0.001</lower>
               <upper>0.001</upper>
             </limit>
+            <dynamics>
+              <damping>0.1</damping>
+            </dynamics>
           </axis>
           <physics>
             <ode>
               <cfm_damping>true</cfm_damping>
               <cfm>0.01</cfm>
-              <erp>0.03</erp>
+              <erp>0.02</erp>
               <limit>
-                <cfm>0.05</cfm>
-                <erp>0.03</erp>
+                <cfm>0.01</cfm>
+                <erp>0.01</erp>
               </limit>
             </ode>
           </physics>
@@ -281,10 +334,10 @@
   <xacro:macro name="gbeam_link_atom" params="">
     <atom_model type="gbeam_link">
       <mate_point type="gbeam" gender="male">
-        <pose>0 0.126 0 ${pi/2} ${pi/4} ${pi}</pose>
+        <pose>0 0.122 0 ${pi/2} ${pi/4} ${pi}</pose>
       </mate_point>
       <mate_point type="gbeam" gender="male">
-        <pose>0 -0.126 0 ${pi/2} ${pi/4} 0</pose>
+        <pose>0 -0.122 0 ${pi/2} ${pi/4} 0</pose>
       </mate_point>
     </atom_model>
   </xacro:macro>
@@ -292,22 +345,22 @@
   <xacro:macro name="gbeam_node_atom" params="">
     <atom_model type="gbeam_node">
       <mate_point type="gbeam" gender="female">
-        <pose>0 0.025 0 ${pi/2} 0 0</pose>
+        <pose>0 0.028 0 ${pi/2} 0 0</pose>
       </mate_point>
       <mate_point type="gbeam" gender="female">
-        <pose>0 -0.025 0 ${pi/2} 0 ${pi}</pose>
+        <pose>0 -0.028 0 ${pi/2} 0 ${pi}</pose>
       </mate_point>
       <mate_point type="gbeam" gender="female">
-        <pose>0 0 0.025 ${pi} 0 0</pose>
+        <pose>0 0 0.028 ${pi} 0 0</pose>
       </mate_point>
       <mate_point type="gbeam" gender="female">
-        <pose>0 0 -0.025 0 0 0</pose>
+        <pose>0 0 -0.028 0 0 0</pose>
       </mate_point>
       <mate_point type="gbeam" gender="female">
-        <pose>0.025 0 0 0 -${pi/2.0} 0</pose>
+        <pose>0.028 0 0 0 -${pi/2.0} 0</pose>
       </mate_point>
       <mate_point type="gbeam" gender="female">
-        <pose>-0.025 0 0 0 ${pi/2.0} 0</pose>
+        <pose>-0.028 0 0 0 ${pi/2.0} 0</pose>
       </mate_point>
     </atom_model>
   </xacro:macro>
@@ -315,41 +368,41 @@
   <xacro:macro name="gbeam_hog_atom" params="">
     <atom_model type="hog">
       <mate_point type="gbeam" gender="female">
-        <pose>0 0.025 0 ${pi/2} 0 0</pose>
+        <pose>0 0.028 0 ${pi/2} 0 0</pose>
       </mate_point>
       <mate_point type="gbeam" gender="female">
-        <pose>0 -0.025 0 ${pi/2} 0 ${pi}</pose>
+        <pose>0 -0.028 0 ${pi/2} 0 ${pi}</pose>
       </mate_point>
       <mate_point type="gbeam" gender="female">
-        <pose>0 0 0.025 ${pi} 0 0</pose>
+        <pose>0 0 0.028 ${pi} 0 0</pose>
       </mate_point>
       <mate_point type="gbeam" gender="female">
-        <pose>0 0 -0.025 0 0 0</pose>
+        <pose>0 0 -0.028 0 0 0</pose>
       </mate_point>
       <mate_point type="gbeam" gender="female">
-        <pose>0.025 0 0 0 -${pi/2.0} 0</pose>
+        <pose>0.028 0 0 0 -${pi/2.0} 0</pose>
       </mate_point>
       <mate_point type="gbeam" gender="female">
-        <pose>-0.025 0 0 0 ${pi/2.0} 0</pose>
+        <pose>-0.028 0 0 0 ${pi/2.0} 0</pose>
       </mate_point>
 
       <mate_point type="gbeam" gender="male">
-        <pose>0 -0.025 0 ${pi/2} 0 0</pose>
+        <pose>0 -0.028 0 ${pi/2} 0 0</pose>
       </mate_point>
       <mate_point type="gbeam" gender="male">
-        <pose>0 0.025 0 ${pi/2} 0 ${pi}</pose>
+        <pose>0 0.028 0 ${pi/2} 0 ${pi}</pose>
       </mate_point>
       <mate_point type="gbeam" gender="male">
-        <pose>0 0 -0.025 ${pi} 0 0</pose>
+        <pose>0 0 -0.028 ${pi} 0 0</pose>
       </mate_point>
       <mate_point type="gbeam" gender="male">
-        <pose>0 0 0.025 0 0 0</pose>
+        <pose>0 0 0.028 0 0 0</pose>
       </mate_point>
       <mate_point type="gbeam" gender="male">
-        <pose>-0.025 0 0 0 -${pi/2.0} 0</pose>
+        <pose>-0.028 0 0 0 -${pi/2.0} 0</pose>
       </mate_point>
       <mate_point type="gbeam" gender="male">
-        <pose>0.025 0 0 0 ${pi/2.0} 0</pose>
+        <pose>0.028 0 0 0 ${pi/2.0} 0</pose>
       </mate_point>
     </atom_model>
   </xacro:macro>

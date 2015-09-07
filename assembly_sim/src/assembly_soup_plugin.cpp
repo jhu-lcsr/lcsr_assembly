@@ -160,6 +160,10 @@ namespace assembly_sim
 
     // Joints should initially be detached
     joint->Detach();
+
+    // Get the stop stiffness
+    max_erp = joint->GetAttribute("erp",0);
+    max_stop_erp = joint->GetAttribute("stop_erp",0);
   }
 
   AssemblySoup::AssemblySoup() :
@@ -388,6 +392,11 @@ namespace assembly_sim
           atom->model = model_it->second;
           break;
         }
+      }
+
+      // Skip this atom if it doesn't have a model
+      if(not atom->model) {
+        continue;
       }
 
       // Add the mate points
@@ -632,8 +641,16 @@ namespace assembly_sim
                    twist_err.rot.Norm() > mate_model->detach_threshold_angular)
                 {
                   mates_to_detach.push_back(mate);
+                } else if(
+                    twist_err.vel.Norm() < mate->mate_error.vel.Norm() and
+                    twist_err.rot.Norm() < mate->mate_error.rot.Norm()) 
+                {
+                  // re-mate but closer to the desired point
+                  mate->mate_error = twist_err;
+                  mates_to_attach.push_back(mate);
+                }
 
-                } else if(publish_active_mates_) {
+                if(publish_active_mates_) {
                   mates_msg.female.push_back(mate->joint->GetParent()->GetName());
                   mates_msg.male.push_back(mate->joint->GetChild()->GetName());
                 }
@@ -643,6 +660,7 @@ namespace assembly_sim
                 if(twist_err.vel.Norm() < mate_model->attach_threshold_linear and
                    twist_err.rot.Norm() < mate_model->attach_threshold_angular)
                 {
+                  mate->mate_error = twist_err;
                   mates_to_attach.push_back(mate);
                 }
               }
@@ -701,8 +719,8 @@ namespace assembly_sim
         update_mutex_.lock();
 
         // clear mates
-        mates_to_attach.resize(0);
-        mates_to_detach.resize(0);
+        mates_to_attach.clear();
+        mates_to_detach.clear();
 
         DoProximityCheck();
         update_mutex_.unlock();
@@ -743,14 +761,39 @@ namespace assembly_sim
            ++it)
       {
         MatePtr mate = *it;
-        gzwarn<<" --- mating "<<mate->joint->GetName()<<std::endl;
+        if(mate->joint->GetParent() and mate->joint->GetChild()) {
+          gzwarn<<" --- remating "<<mate->joint->GetName()<<std::endl;
+        } else {
+          gzwarn<<" --- mating "<<mate->joint->GetName()<<std::endl;
+        }
 
         // Get the male atom frame
         KDL::Frame male_atom_frame;
         to_kdl(mate->male->link->GetWorldPose(), male_atom_frame);
 
+        // detach the atoms if they're already attached (they're going to be re-attached)
+        mate->joint->Detach();
+
         // attach two atoms via joint
         mate->joint->Attach(mate->female->link, mate->male->link);
+
+        // set stiffness based on proximity to goal
+        double lin_err = mate->mate_error.vel.Norm();
+        double ang_err = mate->mate_error.rot.Norm();
+        double max_lin_err = mate->male_mate_point_model->model->detach_threshold_linear;
+        double max_ang_err = mate->male_mate_point_model->model->detach_threshold_angular;
+        //mate->joint->SetAttribute(
+            //"stop_erp", 0,
+            //mate->max_stop_erp *
+            //std::min(std::max(0.0, max_lin_err - lin_err), max_lin_err) / max_lin_err *
+            //std::min(std::max(0.0, max_ang_err - ang_err), max_ang_err) / max_ang_err);
+        //mate->joint->SetAttribute(
+            //"erp", 0,
+            //mate->max_erp *
+            //std::min(std::max(0.0, max_lin_err - lin_err), max_lin_err) / max_lin_err *
+            //std::min(std::max(0.0, max_ang_err - ang_err), max_ang_err) / max_ang_err);
+
+        //mate->joint->SetHighStop(0, lin_err);
 
         // get the location of the joint in the child (male atom) frame, as specified by the SDF
         KDL::Frame initial_anchor_frame, actual_anchor_frame;
@@ -771,8 +814,13 @@ namespace assembly_sim
             mate->male_mate_point_model->pose // atom to mate point
             ).Inverse();
 
-        gzwarn<<" --- joint pose: "<<std::endl<<initial_anchor_frame<<std::endl;
+        //gzwarn<<" ---- initial anchor pose: "<<std::endl<<initial_anchor_frame<<std::endl;
+        //gzwarn<<" ---- actual anchor pose: "<<std::endl<<actual_anchor_frame<<std::endl;
+        gzwarn<<" ---- mate error: "<<mate->mate_error.vel.Norm()<<", "<<mate->mate_error.rot.Norm()<<std::endl;
       }
+
+      mates_to_attach.clear();
+      mates_to_detach.clear();
 
       update_mutex_.unlock();
     }
