@@ -5,6 +5,7 @@
 #include <stdio.h>
 
 #include <boost/make_shared.hpp>
+#include <boost/thread/mutex.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/format.hpp>
 
@@ -453,8 +454,160 @@ namespace assembly_sim
           boost::format("%s/%s")
           % atom_name
           % female_atom->model->type);
+      // Iterate over all female mate points of female link
+      for(std::vector<MatePointPtr>::iterator it_fmp = female_atom->female_mate_points.begin();
+          it_fmp != female_atom->female_mate_points.end();
+          ++it_fmp)
+      {
+        MatePointPtr female_mate_point = *it_fmp;
+
+        // Compute the world pose of the female mate frame
+        KDL::Frame female_mate_frame = female_atom_frame * female_mate_point->model->pose;
+
+        // Iterate over all other atoms
+        for(std::vector<AtomPtr>::iterator it_ma = atoms_.begin();
+            it_ma != atoms_.end();
+            ++it_ma)
+        {
+          AtomPtr male_atom = *it_ma;
+
+          // You can't mate with yourself
+          if(male_atom == female_atom) { continue; }
+
+          KDL::Frame male_atom_frame;
+          to_kdl(male_atom->link->GetWorldPose(), male_atom_frame);
+
+          // Iterate over all male mate points of male link
+          for(std::vector<MatePointPtr>::iterator it_mmp = male_atom->male_mate_points.begin();
+              it_mmp != male_atom->male_mate_points.end();
+              ++it_mmp)
+          {
+            MatePointPtr male_mate_point = *it_mmp;
+
+            // Skip if the mates are incompatible
+            if(female_mate_point->model->model != male_mate_point->model->model) { continue; }
+
+            // Get the mate between these two mate points
+            MatePtr mate;
+            MateModelPtr mate_model = female_mate_point->model->model;
+            mate_table_t::iterator mtf = mate_table_.find(female_mate_point);
+
+            if(mtf == mate_table_.end())
+            {
+              // This female mate point needs to be added
+              std::cout<<"adding female"<<std::endl;
+              mate_point_map_t mate_point_map;
+              mate = boost::make_shared<Mate>(
+                  model_,
+                  female_mate_point->model,
+                  male_mate_point->model,
+                  female_atom,
+                  male_atom);
+              mate_point_map[male_mate_point] = mate;
+              mate_table_[female_mate_point] = mate_point_map;
+              std::cout<<"done adding female"<<std::endl;
+            }
+            else if(mtf->second.find(male_mate_point) == mtf->second.end())
+            {
+              // This male mate point needs to be added
+              std::cout<<"adding male"<<std::endl;
+              mate = boost::make_shared<Mate>(
+                  model_,
+                  female_mate_point->model,
+                  male_mate_point->model,
+                  female_atom,
+                  male_atom);
+
+              mtf->second[male_mate_point] = mate;
+              std::cout<<"done  adding male"<<std::endl;
+            }
+            else
+            {
+              // This mate pair is already in the table
+              mate = mtf->second.at(male_mate_point);
+            }
+
+            // Skip this pair if it's already scheduled for attaching/detaching
+            if(mates_to_attach.count(mate) > 0 or mates_to_detach.count(mate)) { continue; }
+
+            // Compute the world pose of the male mate frame
+            // This takes into account the attachment displacement (anchor_offset)
+            KDL::Frame male_mate_frame = male_atom_frame * male_mate_point->model->pose * mate->anchor_offset;
+
+            // compute twist between the two mate points
+            KDL::Twist twist_err = diff(female_mate_frame, male_mate_frame);
+
+            // Only analyze mates with associated joints
+            if(mate->joint) {
+              //if(female_mate_point->model->id == 0) gzwarn<<" --- err linear: "<<twist_err.vel.Norm()<<" angular: "<<twist_err.rot.Norm()<<std::endl;
+
+              // Synchronize with main update thread
+              boost::mutex::scoped_lock update_lock(update_mutex_);
+
+              // Determine if mated atoms need to be detached
+              if(mate->joint->GetParent() and mate->joint->GetChild()) {
+                //gzwarn<<"Parts are mated!"<<std::endl;
+                
+                if(twist_err.vel.Norm() > mate_model->detach_threshold_linear or
+                   twist_err.rot.Norm() > mate_model->detach_threshold_angular)
+                {
+                  mates_to_detach.insert(mate);
+                } else if(
+                    twist_err.vel.Norm() < mate->mate_error.vel.Norm() and
+                    twist_err.rot.Norm() < mate->mate_error.rot.Norm()) 
+                {
+                  // re-mate but closer to the desired point
+                  mate->mate_error = twist_err;
+                  mates_to_attach.insert(mate);
+                }
+
+                if(publish_active_mates_) {
+                  mates_msg.female.push_back(mate->joint->GetParent()->GetName());
+                  mates_msg.male.push_back(mate->joint->GetChild()->GetName());
+                }
+
+              } else {
+                //gzwarn<<"Parts are not mated!"<<std::endl;
+                if(twist_err.vel.Norm() < mate_model->attach_threshold_linear and
+                   twist_err.rot.Norm() < mate_model->attach_threshold_angular)
+                {
+                  mate->mate_error = twist_err;
+                  mates_to_attach.insert(mate);
+                }
+              }
+
+              // Broadcast the TF frame for this joint
+              // TODO: move this introspection out of this thread
+              if (broadcast_tf_ and mate->joint->GetParent() and mate->joint->GetChild())
+              {
+                tf::Transform tf_joint_frame;
+                //to_kdl(male_atom->link->GetWorldPose() * mate->joint->GetInitialAnchorPose(), tf_frame);
+                //to_tf(mate->joint->GetWorldPose(), tf_frame);
+
+                gazebo::math::Vector3 anchor = mate->joint->GetAnchor(0);
+
+                KDL::Frame joint_frame = KDL::Frame(
+                    male_mate_frame.M,
+                    KDL::Vector(anchor.x, anchor.y, anchor.z));
+                tf::poseKDLToTF(joint_frame, tf_joint_frame);
+
+                br.sendTransform(
+                    tf::StampedTransform(
+                        tf_joint_frame,
+                        ros::Time::now(),
+                        tf_world_frame_,
+                        mate->joint->GetName()));
+              }
+
+            } else {
+              //gzwarn<<"No joint for mate from "<<female_atom->link->GetName()<<" -> "<<male_atom->link->GetName()<<std::endl;
+            }
+          }
+        }
+      }
 
       // Broadcast TF frames for this link
+      // TODO: move this introspection out of this thread
       if(broadcast_tf_)
       {
 
@@ -548,153 +701,9 @@ namespace assembly_sim
         male_mate_pub_.publish(male_mate_markers);
         female_mate_pub_.publish(female_mate_markers);
       }
-
-      // Iterate over all female mate points of female link
-      for(std::vector<MatePointPtr>::iterator it_fmp = female_atom->female_mate_points.begin();
-          it_fmp != female_atom->female_mate_points.end();
-          ++it_fmp)
-      {
-        MatePointPtr female_mate_point = *it_fmp;
-
-        // Compute the world pose of the female mate frame
-        KDL::Frame female_mate_frame = female_atom_frame * female_mate_point->model->pose;
-
-        // Iterate over all other atoms
-        for(std::vector<AtomPtr>::iterator it_ma = atoms_.begin();
-            it_ma != atoms_.end();
-            ++it_ma)
-        {
-          AtomPtr male_atom = *it_ma;
-
-          // You can't mate with yourself
-          if(male_atom == female_atom) { continue; }
-
-          KDL::Frame male_atom_frame;
-          to_kdl(male_atom->link->GetWorldPose(), male_atom_frame);
-
-          // Iterate over all male mate points of male link
-          for(std::vector<MatePointPtr>::iterator it_mmp = male_atom->male_mate_points.begin();
-              it_mmp != male_atom->male_mate_points.end();
-              ++it_mmp)
-          {
-            MatePointPtr male_mate_point = *it_mmp;
-
-            // Skip if the mates are incompatible
-            if(female_mate_point->model->model != male_mate_point->model->model) { continue; }
-
-            // Get the mate between these two mate points
-            MatePtr mate;
-            MateModelPtr mate_model = female_mate_point->model->model;
-            mate_table_t::iterator mtf = mate_table_.find(female_mate_point);
-
-            if(mtf == mate_table_.end())
-            {
-              // This female mate point needs to be added
-              std::cout<<"adding female"<<std::endl;
-              mate_point_map_t mate_point_map;
-              mate = boost::make_shared<Mate>(
-                  model_,
-                  female_mate_point->model,
-                  male_mate_point->model,
-                  female_atom,
-                  male_atom);
-              mate_point_map[male_mate_point] = mate;
-              mate_table_[female_mate_point] = mate_point_map;
-              std::cout<<"done adding female"<<std::endl;
-            }
-            else if(mtf->second.find(male_mate_point) == mtf->second.end())
-            {
-              // This male mate point needs to be added
-              std::cout<<"adding male"<<std::endl;
-              mate = boost::make_shared<Mate>(
-                  model_,
-                  female_mate_point->model,
-                  male_mate_point->model,
-                  female_atom,
-                  male_atom);
-
-              mtf->second[male_mate_point] = mate;
-              std::cout<<"done  adding male"<<std::endl;
-            }
-            else
-            {
-              // This mate pair is already in the table
-              mate = mtf->second.at(male_mate_point);
-            }
-
-            // Compute the world pose of the male mate frame
-            // This takes into account the attachment displacement (anchor_offset)
-            KDL::Frame male_mate_frame = male_atom_frame * male_mate_point->model->pose * mate->anchor_offset;
-
-            // compute twist between the two mate points
-            KDL::Twist twist_err = diff(female_mate_frame, male_mate_frame);
-
-            // Only analyze mates with associated joints
-            if(mate->joint) {
-              //if(female_mate_point->model->id == 0) gzwarn<<" --- err linear: "<<twist_err.vel.Norm()<<" angular: "<<twist_err.rot.Norm()<<std::endl;
-
-              // Determine if mated atoms need to be detached
-              if(mate->joint->GetParent() and mate->joint->GetChild()) {
-                //gzwarn<<"Parts are mated!"<<std::endl;
-                
-                if(twist_err.vel.Norm() > mate_model->detach_threshold_linear or
-                   twist_err.rot.Norm() > mate_model->detach_threshold_angular)
-                {
-                  mates_to_detach.push_back(mate);
-                } else if(
-                    twist_err.vel.Norm() < mate->mate_error.vel.Norm() and
-                    twist_err.rot.Norm() < mate->mate_error.rot.Norm()) 
-                {
-                  // re-mate but closer to the desired point
-                  mate->mate_error = twist_err;
-                  mates_to_attach.push_back(mate);
-                }
-
-                if(publish_active_mates_) {
-                  mates_msg.female.push_back(mate->joint->GetParent()->GetName());
-                  mates_msg.male.push_back(mate->joint->GetChild()->GetName());
-                }
-
-              } else {
-                //gzwarn<<"Parts are not mated!"<<std::endl;
-                if(twist_err.vel.Norm() < mate_model->attach_threshold_linear and
-                   twist_err.rot.Norm() < mate_model->attach_threshold_angular)
-                {
-                  mate->mate_error = twist_err;
-                  mates_to_attach.push_back(mate);
-                }
-              }
-
-              // Broadcast the TF frame for this joint
-              if (broadcast_tf_ and mate->joint->GetParent() and mate->joint->GetChild())
-              {
-                tf::Transform tf_joint_frame;
-                //to_kdl(male_atom->link->GetWorldPose() * mate->joint->GetInitialAnchorPose(), tf_frame);
-                //to_tf(mate->joint->GetWorldPose(), tf_frame);
-
-                gazebo::math::Vector3 anchor = mate->joint->GetAnchor(0);
-
-                KDL::Frame joint_frame = KDL::Frame(
-                    male_mate_frame.M,
-                    KDL::Vector(anchor.x, anchor.y, anchor.z));
-                tf::poseKDLToTF(joint_frame, tf_joint_frame);
-
-                br.sendTransform(
-                    tf::StampedTransform(
-                        tf_joint_frame,
-                        ros::Time::now(),
-                        tf_world_frame_,
-                        mate->joint->GetName()));
-              }
-
-            } else {
-              //gzwarn<<"No joint for mate from "<<female_atom->link->GetName()<<" -> "<<male_atom->link->GetName()<<std::endl;
-            }
-          }
-        }
-      }
     }
 
+    // TODO: move this introspection out of this thread
     if (publish_active_mates_) {
       active_mates_pub_.publish(mates_msg);
     }
@@ -710,22 +719,20 @@ namespace assembly_sim
 
     std::cout << "Collision thread running!" << std::endl;
 
-    while (running_) {
+    gazebo::physics::WorldPtr world = this->model_->GetWorld();
+    gazebo::common::Time now(0);
+    gazebo::common::Time update_period(1.0/updates_per_second_);
+    gazebo::common::Time last_update_time = world->GetSimTime();
 
-      clock_t current_tick = clock();
+    while(running_) {
 
-      if ((float)(current_tick - last_tick_) / CLOCKS_PER_SEC > 1.0 / updates_per_second_) {
+      now = world->GetSimTime();
 
-        update_mutex_.lock();
-
-        // clear mates
-        mates_to_attach.clear();
-        mates_to_detach.clear();
-
+      if(now < last_update_time + update_period) {
+        gazebo::common::Time::Sleep(last_update_time + update_period - now);
+      } else {
+        last_update_time = world->GetSimTime();
         DoProximityCheck();
-        update_mutex_.unlock();
-
-        last_tick_ = clock();
       }
     }
   }
@@ -745,18 +752,22 @@ namespace assembly_sim
       std::cout << "Started." <<std::endl;
     }
 
-    if (update_mutex_.try_lock()) {
+    boost::mutex::scoped_lock update_lock(update_mutex_, boost::try_to_lock);
+    if (update_lock) {
 
-      for (std::vector<MatePtr>::iterator it = mates_to_detach.begin();
+      // Detach joints
+      for (boost::unordered_set<MatePtr>::iterator it = mates_to_detach.begin();
            it != mates_to_detach.end();
            ++it)
       {
         MatePtr mate = *it;
         gzwarn<<" --- demating "<<mate->joint->GetName()<<std::endl;
-        // Detach joint
         mate->joint->Detach();
       }
-      for (std::vector<MatePtr>::iterator it = mates_to_attach.begin();
+      mates_to_detach.clear();
+
+      // Attach joints
+      for (boost::unordered_set<MatePtr>::iterator it = mates_to_attach.begin();
            it != mates_to_attach.end();
            ++it)
       {
@@ -818,11 +829,7 @@ namespace assembly_sim
         //gzwarn<<" ---- actual anchor pose: "<<std::endl<<actual_anchor_frame<<std::endl;
         gzwarn<<" ---- mate error: "<<mate->mate_error.vel.Norm()<<", "<<mate->mate_error.rot.Norm()<<std::endl;
       }
-
       mates_to_attach.clear();
-      mates_to_detach.clear();
-
-      update_mutex_.unlock();
     }
   }
 

@@ -169,8 +169,8 @@ namespace assembly_sim {
       bool running_;
 
       // mates to attach/detach in OnUpdate thread
-      std::vector<MatePtr> mates_to_attach;
-      std::vector<MatePtr> mates_to_detach;
+      boost::unordered_set<MatePtr> mates_to_attach;
+      boost::unordered_set<MatePtr> mates_to_detach;
 
     protected:
       size_t mate_id_counter_;
