@@ -97,28 +97,28 @@ namespace assembly_sim
 {
   Mate::Mate(
       gazebo::physics::ModelPtr gazebo_model,
-      MatePointModelPtr female_mate_point_model_,
-      MatePointModelPtr male_mate_point_model_,
+      MatePointPtr female_mate_point_,
+      MatePointPtr male_mate_point_,
       AtomPtr female_atom,
       AtomPtr male_atom) :
     female(female_atom),
     male(male_atom),
-    female_mate_point_model(female_mate_point_model_),
-    male_mate_point_model(male_mate_point_model_),
+    female_mate_point(female_mate_point_),
+    male_mate_point(male_mate_point_),
     joint_sdf(),
     joint()
   {
     std::cout << male_atom->link->GetName() << std::endl;
     std::cout << female_atom->link->GetName() << std::endl;
     gzwarn<<"Creating joint for mate type: "
-      <<female_mate_point_model->model->type<<" "
+      <<female_mate_point->model->type<<" "
       <<female_atom->link->GetName()
       <<" -> "
       <<male_atom->link->GetName()
       <<std::endl;
 
     // Create a new joint
-    MateModelPtr mate_model = female_mate_point_model->model;
+    MateModelPtr mate_model = female_mate_point->model;
 
     // Get the joint type
     std::string joint_type;
@@ -130,14 +130,14 @@ namespace assembly_sim
     joint_sdf->GetAttribute("name")->Set(
         str( boost::format("%s_m%0d_to_%s_m%0d")
              % female_atom->link->GetName()
-             % female_mate_point_model->id
+             % female_mate_point->id
              % male_atom->link->GetName()
-             % male_mate_point_model->id));
+             % male_mate_point->id));
     joint_sdf->GetElement("parent")->GetValue()->Set(female_atom->link->GetName());
     joint_sdf->GetElement("child")->GetValue()->Set(male_atom->link->GetName());
 
     gazebo::math::Pose pose;
-    to_gazebo(male_mate_point_model->pose, pose);
+    to_gazebo(male_mate_point->pose, pose);
     joint_sdf->GetElement("pose")->GetValue()->Set(pose);
 
     //gzwarn<<"joint sdf:\n\n"<<joint_sdf->ToString(">>")<<std::endl;
@@ -325,35 +325,35 @@ namespace assembly_sim
         gzwarn<<"Adding mate point type: "<<type<<" gender: "<<gender<<" at: "<<base_pose<<std::endl;
 
         MateModelPtr mate_model = mate_models_[type];
-        MatePointModelPtr mate_point_model;
+        MatePointPtr mate_point;
 
         if(boost::iequals(gender, "female")) {
           for(std::vector<KDL::Frame>::iterator pose_it = mate_model->symmetries.begin();
               pose_it != mate_model->symmetries.end();
               ++pose_it)
           {
-            mate_point_model = boost::make_shared<MatePointModel>();
-            mate_point_model->model = mate_model;
-            mate_point_model->pose = base_pose * (*pose_it);
-            mate_point_model->id =
+            mate_point = boost::make_shared<MatePoint>();
+            mate_point->model = mate_model;
+            mate_point->pose = base_pose * (*pose_it);
+            mate_point->id =
               atom_model->female_mate_points.size()
               + atom_model->male_mate_points.size();
 
-            gzwarn<<"Adding female mate point "<<atom_model->type<<"#"<<mate_point_model->id<<" pose: "<<std::endl<<mate_point_model->pose<<std::endl;
+            gzwarn<<"Adding female mate point "<<atom_model->type<<"#"<<mate_point->id<<" pose: "<<std::endl<<mate_point->pose<<std::endl;
 
-            atom_model->female_mate_points.push_back(mate_point_model);
+            atom_model->female_mate_points.push_back(mate_point);
           }
         } else if(boost::iequals(gender, "male")) {
-          mate_point_model = boost::make_shared<MatePointModel>();
-          mate_point_model->model = mate_model;
-          mate_point_model->pose = base_pose;
-            mate_point_model->id =
+          mate_point = boost::make_shared<MatePoint>();
+          mate_point->model = mate_model;
+          mate_point->pose = base_pose;
+            mate_point->id =
               atom_model->female_mate_points.size()
               + atom_model->male_mate_points.size();
 
-          gzwarn<<"Adding male mate point "<<atom_model->type<<"#"<<mate_point_model->id<<" pose: "<<std::endl<<mate_point_model->pose<<std::endl;
+          gzwarn<<"Adding male mate point "<<atom_model->type<<"#"<<mate_point->id<<" pose: "<<std::endl<<mate_point->pose<<std::endl;
 
-          atom_model->male_mate_points.push_back(mate_point_model);
+          atom_model->male_mate_points.push_back(mate_point);
         } else {
           gzerr<<"Unknown gender: "<<gender<<std::endl;
         }
@@ -388,25 +388,6 @@ namespace assembly_sim
           atom->model = model_it->second;
           break;
         }
-      }
-
-      // Add the mate points
-      for(std::vector<MatePointModelPtr>::iterator mpm_it=atom->model->female_mate_points.begin();
-          mpm_it != atom->model->female_mate_points.end();
-          ++mpm_it)
-      {
-        MatePointPtr mate_point = boost::make_shared<MatePoint>();
-        mate_point->model = *mpm_it;
-        atom->female_mate_points.push_back(mate_point);
-      }
-
-      for(std::vector<MatePointModelPtr>::iterator mpm_it=atom->model->male_mate_points.begin();
-          mpm_it != atom->model->male_mate_points.end();
-          ++mpm_it)
-      {
-        MatePointPtr mate_point = boost::make_shared<MatePoint>();
-        mate_point->model = *mpm_it;
-        atom->male_mate_points.push_back(mate_point);
       }
 
       atoms_.push_back(atom);
@@ -465,8 +446,8 @@ namespace assembly_sim
                 link_name));
 
         // Broadcast all male mate points for this atom
-        for(std::vector<MatePointPtr>::iterator it_mmp = female_atom->male_mate_points.begin();
-            it_mmp != female_atom->male_mate_points.end();
+        for(std::vector<MatePointPtr>::iterator it_mmp = female_atom->model->male_mate_points.begin();
+            it_mmp != female_atom->model->male_mate_points.end();
             ++it_mmp)
         {
           MatePointPtr male_mate_point = *it_mmp;
@@ -474,9 +455,9 @@ namespace assembly_sim
           const std::string male_mate_point_name = str(
               boost::format("%s/male_%d")
               % atom_name
-              % male_mate_point->model->id);
+              % male_mate_point->id);
 
-          tf::poseKDLToTF(male_mate_point->model->pose,tf_frame);
+          tf::poseKDLToTF(male_mate_point->pose,tf_frame);
           br.sendTransform(
               tf::StampedTransform(
                   tf_frame,
@@ -489,7 +470,7 @@ namespace assembly_sim
           mate_marker.header.stamp = ros::Time(0);
           mate_marker.type = mate_marker.CUBE;
           mate_marker.action = mate_marker.ADD;
-          mate_marker.id = (iter * 100) + male_mate_point->model->id;
+          mate_marker.id = (iter * 100) + male_mate_point->id;
           mate_marker.scale.x = 0.02;
           mate_marker.scale.y = 0.02;
           mate_marker.scale.z = 0.01;
@@ -501,8 +482,8 @@ namespace assembly_sim
         }
 
         // Broadcast all female mate points for this atom
-        for(std::vector<MatePointPtr>::iterator it_fmp = female_atom->female_mate_points.begin();
-            it_fmp != female_atom->female_mate_points.end();
+        for(std::vector<MatePointPtr>::iterator it_fmp = female_atom->model->female_mate_points.begin();
+            it_fmp != female_atom->model->female_mate_points.end();
             ++it_fmp)
         {
           MatePointPtr female_mate_point = *it_fmp;
@@ -510,9 +491,9 @@ namespace assembly_sim
           const std::string female_mate_point_name = str(
               boost::format("%s/female_%d")
               % atom_name
-              % female_mate_point->model->id);
+              % female_mate_point->id);
 
-          tf::poseKDLToTF(female_mate_point->model->pose, tf_frame);
+          tf::poseKDLToTF(female_mate_point->pose, tf_frame);
           br.sendTransform(
               tf::StampedTransform(
                   tf_frame,
@@ -525,7 +506,7 @@ namespace assembly_sim
           mate_marker.header.stamp = ros::Time(0);
           mate_marker.type = mate_marker.CUBE;
           mate_marker.action = mate_marker.ADD;
-          mate_marker.id = (iter * 100) + female_mate_point->model->id;
+          mate_marker.id = (iter * 100) + female_mate_point->id;
           mate_marker.scale.x = 0.02;
           mate_marker.scale.y = 0.02;
           mate_marker.scale.z = 0.01;
@@ -541,14 +522,14 @@ namespace assembly_sim
       }
 
       // Iterate over all female mate points of female link
-      for(std::vector<MatePointPtr>::iterator it_fmp = female_atom->female_mate_points.begin();
-          it_fmp != female_atom->female_mate_points.end();
+      for(std::vector<MatePointPtr>::iterator it_fmp = female_atom->model->female_mate_points.begin();
+          it_fmp != female_atom->model->female_mate_points.end();
           ++it_fmp)
       {
         MatePointPtr female_mate_point = *it_fmp;
 
         // Compute the world pose of the female mate frame
-        KDL::Frame female_mate_frame = female_atom_frame * female_mate_point->model->pose;
+        KDL::Frame female_mate_frame = female_atom_frame * female_mate_point->pose;
 
         // Iterate over all other atoms
         for(std::vector<AtomPtr>::iterator it_ma = atoms_.begin();
@@ -564,18 +545,18 @@ namespace assembly_sim
           to_kdl(male_atom->link->GetWorldPose(), male_atom_frame);
 
           // Iterate over all male mate points of male link
-          for(std::vector<MatePointPtr>::iterator it_mmp = male_atom->male_mate_points.begin();
-              it_mmp != male_atom->male_mate_points.end();
+          for(std::vector<MatePointPtr>::iterator it_mmp = male_atom->model->male_mate_points.begin();
+              it_mmp != male_atom->model->male_mate_points.end();
               ++it_mmp)
           {
             MatePointPtr male_mate_point = *it_mmp;
 
             // Skip if the mates are incompatible
-            if(female_mate_point->model->model != male_mate_point->model->model) { continue; }
+            if(female_mate_point->model != male_mate_point->model) { continue; }
 
             // Get the mate between these two mate points
             MatePtr mate;
-            MateModelPtr mate_model = female_mate_point->model->model;
+            MateModelPtr mate_model = female_mate_point->model;
             mate_table_t::iterator mtf = mate_table_.find(female_mate_point);
 
             if(mtf == mate_table_.end())
@@ -585,8 +566,8 @@ namespace assembly_sim
               mate_point_map_t mate_point_map;
               mate = boost::make_shared<Mate>(
                   model_,
-                  female_mate_point->model,
-                  male_mate_point->model,
+                  female_mate_point,
+                  male_mate_point,
                   female_atom,
                   male_atom);
               mate_point_map[male_mate_point] = mate;
@@ -599,8 +580,8 @@ namespace assembly_sim
               std::cout<<"adding male"<<std::endl;
               mate = boost::make_shared<Mate>(
                   model_,
-                  female_mate_point->model,
-                  male_mate_point->model,
+                  female_mate_point,
+                  male_mate_point,
                   female_atom,
                   male_atom);
 
@@ -615,14 +596,14 @@ namespace assembly_sim
 
             // Compute the world pose of the male mate frame
             // This takes into account the attachment displacement (anchor_offset)
-            KDL::Frame male_mate_frame = male_atom_frame * male_mate_point->model->pose * mate->anchor_offset;
+            KDL::Frame male_mate_frame = male_atom_frame * male_mate_point->pose * mate->anchor_offset;
 
             // compute twist between the two mate points
             KDL::Twist twist_err = diff(female_mate_frame, male_mate_frame);
 
             // Only analyze mates with associated joints
             if(mate->joint) {
-              //if(female_mate_point->model->id == 0) gzwarn<<" --- err linear: "<<twist_err.vel.Norm()<<" angular: "<<twist_err.rot.Norm()<<std::endl;
+              //if(female_mate_point->id == 0) gzwarn<<" --- err linear: "<<twist_err.vel.Norm()<<" angular: "<<twist_err.rot.Norm()<<std::endl;
 
               // Determine if mated atoms need to be detached
               if(mate->joint->GetParent() and mate->joint->GetChild()) {
@@ -768,7 +749,7 @@ namespace assembly_sim
         mate->anchor_offset = (
             actual_anchor_frame.Inverse() *   // anchor to world
             male_atom_frame *                 // world to atom
-            mate->male_mate_point_model->pose // atom to mate point
+            mate->male_mate_point->pose // atom to mate point
             ).Inverse();
 
         gzwarn<<" --- joint pose: "<<std::endl<<initial_anchor_frame<<std::endl;
