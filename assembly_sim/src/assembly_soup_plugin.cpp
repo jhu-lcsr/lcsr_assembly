@@ -218,8 +218,27 @@ namespace assembly_sim
 
     while(mate_elem && mate_elem->GetName() == "mate_model")
     {
-      // Create a new mate
-      MateModelPtr mate_model = boost::make_shared<MateModel>();
+      // Create a new mate model
+      std::string model;
+      if(mate_elem->HasAttribute("model")) {
+        mate_elem->GetAttribute("model")->Get(model);
+      } else {
+        gzerr<<"ERROR: no mate model type for mate model"<<std::endl;
+        return;
+      }
+
+      // Determine the type of mate model
+      MateModelPtr mate_model;
+      if(model == "proximity") {
+        mate_model = boost::make_shared<ProximityMateModel>();
+      } else if(model == "dipole") {
+        mate_model = boost::make_shared<DipoleMateModel>();
+      } else {
+        gzerr<<"ERROR: \""<<model<<"\" is not a valid model type"<<std::endl;
+        return;
+      }
+
+      // Get the model name
       if(mate_elem->HasAttribute("type")) {
         mate_elem->GetAttribute("type")->Get(mate_model->type);
         gzlog<<"Adding mate model for "<<mate_model->type<<std::endl;
@@ -266,28 +285,8 @@ namespace assembly_sim
         }
       }
 
-      // Get the attach/detach thresholds
-      sdf::ElementPtr attach_threshold_elem = mate_elem->GetElement("attach_threshold");
-      if(attach_threshold_elem and attach_threshold_elem->HasElement("linear") and attach_threshold_elem->HasElement("angular"))
-      {
-        attach_threshold_elem->GetElement("linear")->GetValue()->Get(mate_model->attach_threshold_linear);
-        attach_threshold_elem->GetElement("angular")->GetValue()->Get(mate_model->attach_threshold_angular);
-
-        gzwarn<<(boost::format("Attach threshold linear: %f angular %f") % mate_model->attach_threshold_linear % mate_model->attach_threshold_angular)<<std::endl;
-      } else {
-        gzerr<<"No attach_threshold / linear / angular elements!"<<std::endl;
-      }
-
-      sdf::ElementPtr detach_threshold_elem = mate_elem->GetElement("detach_threshold");
-      if(detach_threshold_elem and detach_threshold_elem->HasElement("linear") and detach_threshold_elem->HasElement("angular"))
-      {
-        detach_threshold_elem->GetElement("linear")->GetValue()->Get(mate_model->detach_threshold_linear);
-        detach_threshold_elem->GetElement("angular")->GetValue()->Get(mate_model->detach_threshold_angular);
-
-        gzwarn<<(boost::format("Detach threshold linear: %f angular %f") % mate_model->attach_threshold_linear % mate_model->attach_threshold_angular)<<std::endl;
-      } else {
-        gzerr<<"No detach_threshold / linear / angular elements!"<<std::endl;
-      }
+      // Load the parameters from the mate model
+      mate_model->load(mate_elem);
 
       // Add the identity if no symmetries were added
       if(mate_model->symmetries.size() == 0) {
@@ -594,64 +593,29 @@ namespace assembly_sim
               mate = mtf->second.at(male_mate_point);
             }
 
-            // Compute the world pose of the male mate frame
-            // This takes into account the attachment displacement (anchor_offset)
-            KDL::Frame male_mate_frame = male_atom_frame * male_mate_point->pose * mate->anchor_offset;
+            // Schedule mates to detach and attach
+            mate->model->update(mate, mates_to_detach, mates_to_affect, mates_to_attach);
 
-            // compute twist between the two mate points
-            KDL::Twist twist_err = diff(female_mate_frame, male_mate_frame);
+            // Broadcast the TF frame for this joint
+            if (broadcast_tf_ and mate->joint->GetParent() and mate->joint->GetChild())
+            {
+              tf::Transform tf_joint_frame;
+              //to_kdl(male_atom->link->GetWorldPose() * mate->joint->GetInitialAnchorPose(), tf_frame);
+              //to_tf(mate->joint->GetWorldPose(), tf_frame);
 
-            // Only analyze mates with associated joints
-            if(mate->joint) {
-              //if(female_mate_point->id == 0) gzwarn<<" --- err linear: "<<twist_err.vel.Norm()<<" angular: "<<twist_err.rot.Norm()<<std::endl;
+              gazebo::math::Vector3 anchor = mate->joint->GetAnchor(0);
 
-              // Determine if mated atoms need to be detached
-              if(mate->joint->GetParent() and mate->joint->GetChild()) {
-                //gzwarn<<"Parts are mated!"<<std::endl;
-                
-                if(twist_err.vel.Norm() > mate_model->detach_threshold_linear or
-                   twist_err.rot.Norm() > mate_model->detach_threshold_angular)
-                {
-                  mates_to_detach.push_back(mate);
+              KDL::Frame joint_frame = KDL::Frame(
+                  male_mate_frame.M,
+                  KDL::Vector(anchor.x, anchor.y, anchor.z));
+              tf::poseKDLToTF(joint_frame, tf_joint_frame);
 
-                } else if(publish_active_mates_) {
-                  mates_msg.female.push_back(mate->joint->GetParent()->GetName());
-                  mates_msg.male.push_back(mate->joint->GetChild()->GetName());
-                }
-
-              } else {
-                //gzwarn<<"Parts are not mated!"<<std::endl;
-                if(twist_err.vel.Norm() < mate_model->attach_threshold_linear and
-                   twist_err.rot.Norm() < mate_model->attach_threshold_angular)
-                {
-                  mates_to_attach.push_back(mate);
-                }
-              }
-
-              // Broadcast the TF frame for this joint
-              if (broadcast_tf_ and mate->joint->GetParent() and mate->joint->GetChild())
-              {
-                tf::Transform tf_joint_frame;
-                //to_kdl(male_atom->link->GetWorldPose() * mate->joint->GetInitialAnchorPose(), tf_frame);
-                //to_tf(mate->joint->GetWorldPose(), tf_frame);
-
-                gazebo::math::Vector3 anchor = mate->joint->GetAnchor(0);
-
-                KDL::Frame joint_frame = KDL::Frame(
-                    male_mate_frame.M,
-                    KDL::Vector(anchor.x, anchor.y, anchor.z));
-                tf::poseKDLToTF(joint_frame, tf_joint_frame);
-
-                br.sendTransform(
-                    tf::StampedTransform(
-                        tf_joint_frame,
-                        ros::Time::now(),
-                        tf_world_frame_,
-                        mate->joint->GetName()));
-              }
-
-            } else {
-              //gzwarn<<"No joint for mate from "<<female_atom->link->GetName()<<" -> "<<male_atom->link->GetName()<<std::endl;
+              br.sendTransform(
+                  tf::StampedTransform(
+                      tf_joint_frame,
+                      ros::Time::now(),
+                      tf_world_frame_,
+                      mate->joint->GetName()));
             }
           }
         }
@@ -716,8 +680,7 @@ namespace assembly_sim
       {
         MatePtr mate = *it;
         gzwarn<<" --- demating "<<mate->joint->GetName()<<std::endl;
-        // Detach joint
-        mate->joint->Detach();
+        mate->model->detach(mate);
       }
       for (std::vector<MatePtr>::iterator it = mates_to_attach.begin();
            it != mates_to_attach.end();
@@ -725,34 +688,7 @@ namespace assembly_sim
       {
         MatePtr mate = *it;
         gzwarn<<" --- mating "<<mate->joint->GetName()<<std::endl;
-
-        // Get the male atom frame
-        KDL::Frame male_atom_frame;
-        to_kdl(mate->male->link->GetWorldPose(), male_atom_frame);
-
-        // attach two atoms via joint
-        mate->joint->Attach(mate->female->link, mate->male->link);
-
-        // get the location of the joint in the child (male atom) frame, as specified by the SDF
-        KDL::Frame initial_anchor_frame, actual_anchor_frame;
-        to_kdl(mate->joint->GetInitialAnchorPose(), initial_anchor_frame);
-        actual_anchor_frame = male_atom_frame*initial_anchor_frame;
-
-        // Set the anchor position (location of the joint)
-        // This is in the WORLD frame
-        // IMPORTANT: This avoids injecting energy into the system in the form of a constraint violation
-        gazebo::math::Pose actual_anchor_pose;
-        to_gazebo(actual_anchor_frame, actual_anchor_pose);
-        mate->joint->SetAnchor(0, actual_anchor_pose.pos);
-
-        // Save the anchor offset (mate point to anchor)
-        mate->anchor_offset = (
-            actual_anchor_frame.Inverse() *   // anchor to world
-            male_atom_frame *                 // world to atom
-            mate->male_mate_point->pose // atom to mate point
-            ).Inverse();
-
-        gzwarn<<" --- joint pose: "<<std::endl<<initial_anchor_frame<<std::endl;
+        mate->model->attach(mate);
       }
 
       update_mutex_.unlock();

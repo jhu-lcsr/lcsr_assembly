@@ -233,7 +233,7 @@
 
   <!-- GBeam mates -->
   <xacro:macro name="gbeam_mate" params="linear_attach angular_attach linear_detach angular_detach">
-    <mate_model type="gbeam">
+    <mate_model type="gbeam" model="proximity">
       <!-- planar shear-supporting magnetic mate
            mating surface is along positive z-axis
              -->
@@ -241,15 +241,32 @@
           <rot>1 1 4</rot>
         </symmetry>
 
-        <attach_threshold>
-          <linear>${linear_attach}</linear>
-          <angular>${angular_attach}</angular>
-        </attach_threshold>
+        <xacro:if value="1">
+          <force>
+            <min>
+              <linear threshold="0.1" deadband="0.01"/>
+              <angular threshold="0.01" deadband="0.001"/>
+            </min>
+            <max>
+              <linear threshold="1.0" deadband="0.1"/>
+              <angular threshold="0.10" deadband="0.01"/>
+            </max>
+          </force>
 
-        <detach_threshold>
-          <linear>${linear_detach}</linear>
-          <angular>${angular_detach}</angular>
-        </detach_threshold>
+          <moment>1.0</moment>
+        </xacro:if>
+
+        <xacro:if value="0">
+          <attach_threshold>
+            <linear>${linear_attach}</linear>
+            <angular>${angular_attach}</angular>
+          </attach_threshold>
+
+          <detach_threshold>
+            <linear>${linear_detach}</linear>
+            <angular>${angular_detach}</angular>
+          </detach_threshold>
+        </xacro:if>
 
         <joint type="prismatic" name="gbeam">
           <pose>0 0.025 0 0 ${pi/2} 0</pose>
