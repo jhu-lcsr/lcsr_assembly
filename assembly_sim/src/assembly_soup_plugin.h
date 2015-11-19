@@ -16,7 +16,6 @@
 
 namespace assembly_sim {
   struct MateModel;
-  struct MatePointModel;
   struct AtomModel;
 
   struct Mate;
@@ -24,71 +23,70 @@ namespace assembly_sim {
   struct Atom;
 
   typedef boost::shared_ptr<MateModel> MateModelPtr;
-  typedef boost::shared_ptr<MatePointModel> MatePointModelPtr;
   typedef boost::shared_ptr<AtomModel> AtomModelPtr;
 
   typedef boost::shared_ptr<Mate> MatePtr;
   typedef boost::shared_ptr<MatePoint> MatePointPtr;
   typedef boost::shared_ptr<Atom> AtomPtr;
 
-  // The model for a type of mate
+  // The model for how a mate behaves
   struct MateModel
   {
+    enum State {
+      NONE = 0, // No state / undefined
+      UNMATED = 1, // There is no interaction between this mate's atoms
+      MATING = 2, // This mate's atoms are connected by the transitional mechanism
+      MATED = 3 // This mate's atoms are connected by a static joint
+    };
+
     std::string type;
 
     // Transforms from the base mate frame to alternative frames
     std::vector<KDL::Frame> symmetries;
 
-    // Threshold for attaching a mate
-    double attach_threshold_linear;
-    double attach_threshold_angular;
-
-    // Threshold for detaching a mate
-    double detach_threshold_linear;
-    double detach_threshold_angular;
-
     // The sdf template for the joint to be created
     boost::shared_ptr<sdf::SDF> joint_template_sdf;
     sdf::ElementPtr joint_template;
+
+    // Load parameters from SDF
+    virtual void load(sdf::ElementPtr mate_elem) = 0;
+
+    // Update mates to attach / detach based on atom state
+    virtual State getStateUpdate(const MatePtr mate) = 0;
+
+    // Change mate state
+    virtual void updateState(MatePtr mate) = 0;
+
+    // Update mate dynamics (default noop)
+    virtual void update(MatePtr mate) {
+    }
   };
 
-  struct MatePointModel
+  struct MatePoint
   {
-    // The model used by this mate point
+    // The mate model used by this mate point
     MateModelPtr model;
-
     // Mate point index
     size_t id;
-
     // The pose of the mate point in the owner frame
     KDL::Frame pose;
-  };
-
-  // The model for a type of atom
-  struct AtomModel
-  {
-    // The type of atom
-    std::string type;
-
-    // Models for the mates
-    std::vector<MatePointModelPtr> female_mate_points;
-    std::vector<MatePointModelPtr> male_mate_points;
-
-    // The sdf for the link to be created for this atom
-    boost::shared_ptr<sdf::SDF> link_template_sdf;
-    sdf::ElementPtr link_template;
   };
 
   // An instantiated mate
   struct Mate
   {
-    // TODO add constructor that does lines 300-326 from the cpp file
     Mate(
       gazebo::physics::ModelPtr gazebo_model,
-      MatePointModelPtr female_mate_point_model_,
-      MatePointModelPtr male_mate_point_model_,
+      MatePointPtr female_mate_point_,
+      MatePointPtr male_mate_point_,
       AtomPtr female_atom,
       AtomPtr male_atom);
+
+    // Mate model (same as mate points)
+    MateModelPtr model;
+
+    // Attachment state
+    MateModel::State state, pending_state;
 
     // Joint SDF
     sdf::ElementPtr joint_sdf;
@@ -104,9 +102,9 @@ namespace assembly_sim {
     AtomPtr female;
     AtomPtr male;
 
-    // Mate point models
-    MatePointModelPtr female_mate_point_model;
-    MatePointModelPtr male_mate_point_model;
+    // Mate points
+    MatePointPtr female_mate_point;
+    MatePointPtr male_mate_point;
 
     // The pose of the joint anchor point relative to the mate point.
     // This gets set each time two atoms are mated, and enables joints
@@ -115,11 +113,19 @@ namespace assembly_sim {
     KDL::Twist mate_error;
   };
 
-  // A point where a mate can be created
-  struct MatePoint
+  // The model for a type of atom
+  struct AtomModel
   {
-    // The model used by this mate point
-    MatePointModelPtr model;
+    // The type of atom
+    std::string type;
+
+    // Models for the mates
+    std::vector<MatePointPtr> female_mate_points;
+    std::vector<MatePointPtr> male_mate_points;
+
+    // The sdf for the link to be created for this atom
+    boost::shared_ptr<sdf::SDF> link_template_sdf;
+    sdf::ElementPtr link_template;
   };
 
   // An instantiated atom
@@ -127,10 +133,6 @@ namespace assembly_sim {
   {
     // The model used by this atom
     AtomModelPtr model;
-
-    // Mate points
-    std::vector<MatePointPtr> female_mate_points;
-    std::vector<MatePointPtr> male_mate_points;
 
     // The link on the assembly model
     gazebo::physics::LinkPtr link;
@@ -163,14 +165,10 @@ namespace assembly_sim {
       boost::mutex update_mutex_;
 
       // update thread
-      boost::thread check_thread_;
-      void CheckProximityLoop();
-      void DoProximityCheck(); // run one collision check
+      boost::thread state_update_thread_;
+      void stateUpdateLoop();
+      void getStateUpdates();
       bool running_;
-
-      // mates to attach/detach in OnUpdate thread
-      boost::unordered_set<MatePtr> mates_to_attach;
-      boost::unordered_set<MatePtr> mates_to_detach;
 
     protected:
       size_t mate_id_counter_;
@@ -183,6 +181,12 @@ namespace assembly_sim {
       std::map<std::string, AtomModelPtr> atom_models_;
 
       std::vector<AtomPtr> atoms_;
+
+      // all mates
+      boost::unordered_set<MatePtr> mates_;
+
+      // mates to attach/detach in OnUpdate thread
+      boost::unordered_set<MatePtr> mates_to_update_;
 
       typedef boost::unordered_map<MatePointPtr, MatePtr> mate_point_map_t;
       typedef boost::unordered_map<MatePointPtr, mate_point_map_t> mate_table_t;
