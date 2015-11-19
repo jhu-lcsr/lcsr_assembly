@@ -283,7 +283,7 @@
 
   <!-- GBeam mates -->
   <xacro:macro name="gbeam_mate" params="linear_attach angular_attach linear_detach angular_detach">
-    <mate_model type="gbeam" model="proximity">
+    <mate_model type="gbeam" model="dipole">
       <!-- planar shear-supporting magnetic mate
            mating surface is along positive z-axis
              -->
@@ -306,7 +306,7 @@
           <moment>1.0</moment>
         </xacro:if>
 
-        <xacro:if value="0">
+        <xacro:if value="1">
           <attach_threshold>
             <linear>${linear_attach}</linear>
             <angular>${angular_attach}</angular>

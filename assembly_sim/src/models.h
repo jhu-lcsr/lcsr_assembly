@@ -8,6 +8,8 @@ namespace assembly_sim {
 
   struct ProximityMateModel : public MateModel
   {
+    ProximityMateModel(std::string type) : MateModel(type) {}
+
     // Threshold for attaching a mate
     double attach_threshold_linear;
     double attach_threshold_angular;
@@ -99,7 +101,7 @@ namespace assembly_sim {
         }
 
       } else {
-        //gzwarn<<"No joint for mate from "<<female_atom->link->GetName()<<" -> "<<male_atom->link->GetName()<<std::endl;
+        gzwarn<<"No joint for mate from "<<female_atom->link->GetName()<<" -> "<<male_atom->link->GetName()<<std::endl;
       }
 
       return new_state;
@@ -113,6 +115,7 @@ namespace assembly_sim {
 
         case MateModel::UNMATED:
           if(mate->state == MateModel::MATED) {
+            gzwarn<<"Detaching "<<mate->female->link->GetName()<<" from "<<mate->male->link->GetName()<<"!"<<std::endl;
             this->detach(mate);
           }
           break;
@@ -122,6 +125,11 @@ namespace assembly_sim {
           break;
 
         case MateModel::MATED:
+          if(mate->state != MateModel::MATED) {
+            gzwarn<<"Attaching "<<mate->female->link->GetName()<<" to "<<mate->male->link->GetName()<<"!"<<std::endl;
+          } else {
+            gzwarn<<"Reattaching "<<mate->female->link->GetName()<<" to "<<mate->male->link->GetName()<<"!"<<std::endl;
+          }
           this->attach(mate);
           break;
       };
@@ -210,6 +218,8 @@ namespace assembly_sim {
       //gzwarn<<" ---- initial anchor pose: "<<std::endl<<initial_anchor_frame<<std::endl;
       //gzwarn<<" ---- actual anchor pose: "<<std::endl<<actual_anchor_frame<<std::endl;
       gzwarn<<" ---- mate error: "<<mate->mate_error.vel.Norm()<<", "<<mate->mate_error.rot.Norm()<<std::endl;
+
+      mate->state = MateModel::MATED;
 #endif
     }
 
@@ -217,17 +227,20 @@ namespace assembly_sim {
     {
       // Simply detach joint
       mate->joint->Detach();
+
+      mate->state = MateModel::UNMATED;
     }
   };
 
   struct DipoleMateModel : public ProximityMateModel
   {
-
+    DipoleMateModel(std::string type) : ProximityMateModel(type) {}
   };
 
 #if 0
   struct DipoleMateModel : public MateModel
   {
+    DipoleMateModel(std::string type) : MateModel(type) {}
 
     double min_force_linear, min_force_angular, min_force_linear_deadband, min_force_angular_deadband;
     double max_force_linear, max_force_angular, max_force_linear_deadband, max_force_angular_deadband;

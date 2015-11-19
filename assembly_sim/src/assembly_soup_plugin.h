@@ -39,6 +39,8 @@ namespace assembly_sim {
       MATED = 3 // This mate's atoms are connected by a static joint
     };
 
+    MateModel(std::string type_) : type(type_) {}
+
     std::string type;
 
     // Transforms from the base mate frame to alternative frames
@@ -51,15 +53,11 @@ namespace assembly_sim {
     // Load parameters from SDF
     virtual void load(sdf::ElementPtr mate_elem) = 0;
 
-    // Update mates to attach / detach based on atom state
+    // Update mates to attach / detach based on atom state (asynchronous with gazebo)
     virtual State getStateUpdate(const MatePtr mate) = 0;
 
-    // Change mate state
+    // Update mate state (synchronous with gazebo)
     virtual void updateState(MatePtr mate) = 0;
-
-    // Update mate dynamics (default noop)
-    virtual void update(MatePtr mate) {
-    }
   };
 
   struct MatePoint
