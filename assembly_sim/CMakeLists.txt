@@ -4,10 +4,10 @@ project(assembly_sim)
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
-find_package(catkin COMPONENTS tf tf_conversions assembly_msgs REQUIRED)
+find_package(catkin COMPONENTS tf tf_conversions assembly_msgs cmake_modules REQUIRED)
 find_package(gazebo REQUIRED)
 find_package(orocos_kdl REQUIRED)
-find_package(eigen REQUIRED)
+find_package(Eigen REQUIRED)
 
 find_package(Boost COMPONENTS thread REQUIRED)
 
@@ -80,7 +80,7 @@ catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES assembly_sim
   CATKIN_DEPENDS tf tf_conversions
-#  DEPENDS system_lib
+  DEPENDS eigen
 )
 
 ###########
