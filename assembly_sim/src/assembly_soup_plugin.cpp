@@ -31,79 +31,6 @@
 
 namespace assembly_sim
 {
-  Mate::Mate(
-      gazebo::physics::ModelPtr gazebo_model,
-      MatePointPtr female_mate_point_,
-      MatePointPtr male_mate_point_,
-      AtomPtr female_atom,
-      AtomPtr male_atom) :
-    model(female_mate_point_->model),
-    state(MateModel::UNMATED),
-    pending_state(MateModel::NONE),
-    female(female_atom),
-    male(male_atom),
-    female_mate_point(female_mate_point_),
-    male_mate_point(male_mate_point_),
-    joint_sdf(),
-    joint()
-  {
-    // Make sure male and female mate points have the same model
-    assert(female_mate_point->model == male_mate_point->model);
-
-    gzwarn<<"Creating joint for mate type: "
-      <<female_mate_point->model->type<<" ("
-      <<female_atom->link->GetName()<<"#"
-      <<female_mate_point->id
-      <<") -> ("
-      <<male_atom->link->GetName()<<"#"
-      <<male_mate_point->id<<")"
-      <<std::endl;
-
-    // Get the joint type
-    std::string joint_type;
-    model->joint_template->GetAttribute("type")->Get(joint_type);
-
-    // Customize the joint sdf template
-    joint_sdf = boost::make_shared<sdf::Element>();
-    joint_sdf->Copy(model->joint_template);
-    joint_sdf->GetAttribute("name")->Set(
-        boost::str( boost::format("%s_m%0d_to_%s_m%0d")
-             % female_atom->link->GetName()
-             % female_mate_point->id
-             % male_atom->link->GetName()
-             % male_mate_point->id));
-    joint_sdf->GetElement("parent")->GetValue()->Set(female_atom->link->GetName());
-    joint_sdf->GetElement("child")->GetValue()->Set(male_atom->link->GetName());
-
-    gazebo::math::Pose pose;
-    to_gazebo(male_mate_point->pose, pose);
-    joint_sdf->GetElement("pose")->GetValue()->Set(pose);
-
-    //gzwarn<<"joint sdf:\n\n"<<joint_sdf->ToString(">>")<<std::endl;
-
-    // Construct the actual joint between these two atom links
-    joint = gazebo_model->GetWorld()->GetPhysicsEngine()->CreateJoint(joint_type, gazebo_model);
-    joint->SetModel(gazebo_model);
-
-    // Load joint description from SDF
-    //  - sets parend a child links
-    //  - sets the anchor pose
-    //  - loads sensor elements
-    joint->Load(joint_sdf);
-
-    // Initialize joint
-    //  - sets axis orientation
-    //  - sets axis limits
-    //  - attaches parent and child via this joint
-    joint->Init();
-
-    // Joints should initially be detached
-    joint->Detach();
-
-    // Get the stop stiffness
-    max_erp = joint->GetAttribute("erp",0);
-    max_stop_erp = joint->GetAttribute("stop_erp",0);
-  }
 
   AssemblySoup::AssemblySoup() :
     mate_id_counter_(0),
@@ -234,7 +161,7 @@ namespace assembly_sim
         }
 
         // Load the parameters from the mate model
-        mate_model->load(mate_elem);
+        mate_model->mate_elem = mate_elem;
 
         // Add the identity if no symmetries were added
         if(mate_model->symmetries.size() == 0) {
@@ -394,16 +321,14 @@ namespace assembly_sim
             // Skip if the mates are incompatible
             if(female_mate_point->model != male_mate_point->model) { continue; }
 
-            // Get the mate between these two mate points
-            MateModelPtr mate_model = female_mate_point->model;
-            mate_table_t::iterator mtf = mate_table_.find(female_mate_point);
+            // Construct the mate between these two mate points
+            MatePtr mate = female_mate_point->model->createMate(
+              model_,
+              female_mate_point,
+              male_mate_point,
+              female_atom,
+              male_atom);
 
-            MatePtr mate = boost::make_shared<Mate>(
-                model_,
-                female_mate_point,
-                male_mate_point,
-                female_atom,
-                male_atom);
             mates_.insert(mate);
           }
         }
@@ -426,7 +351,7 @@ namespace assembly_sim
     boost::mutex::scoped_lock update_lock(update_mutex_);
 
     unsigned int iter = 0;
-    
+
     // Iterate over all mates
     for (boost::unordered_set<MatePtr>::iterator it = mates_.begin();
          it != mates_.end();
@@ -434,26 +359,27 @@ namespace assembly_sim
     {
       MatePtr mate = *it;
 
-      if(publish_active_mates_ and mate->state == MateModel::MATED) {
+      if(publish_active_mates_ and mate->state == Mate::MATED) {
         mates_msg.female.push_back(mate->joint->GetParent()->GetName());
         mates_msg.male.push_back(mate->joint->GetChild()->GetName());
       }
 
       // Check if this mate is already scheduled to be updated
-      if(mate->pending_state != MateModel::NONE) {
+      if(mate_updates_.find(mate) != mate_updates_.end() and mate_updates_[mate] != Mate::NONE) {
         gzwarn<<"mate already scheduled."<<std::endl;
-        continue; 
+        continue;
       }
 
       // Determine if this mate needs to change state
-      mate->pending_state = mate->model->getStateUpdate(mate);
+      mate_updates_[mate] = mate->getNewState();
 
       // Schedule mates to detach / attach etc
-      if(mate->pending_state != MateModel::NONE) {
+      if(mate_updates_[mate] != Mate::NONE) {
         gzwarn<<"mate needs to be updated"<<std::endl;
       }
 
       // Broadcast the TF frame for this joint
+      // TODO: move this introspection out of this thread
       if (broadcast_tf_ and mate->joint->GetParent() and mate->joint->GetChild())
       {
         tf::Transform tf_joint_frame;
@@ -641,16 +567,32 @@ namespace assembly_sim
       gzwarn << "Started." <<std::endl;
     }
 
-    // Attach / Detach joints
-    boost::mutex::scoped_lock update_lock(update_mutex_, boost::try_to_lock);
-    if (update_lock) {
-      for (boost::unordered_set<MatePtr>::iterator it = mates_.begin();
-           it != mates_.end();
-           ++it)
-      {
-        MatePtr mate = *it;
-        mate->model->updateState(mate);
+    // Try to lock mutex in order to change mate states
+    {
+      boost::mutex::scoped_lock update_lock(update_mutex_, boost::try_to_lock);
+      if (update_lock) {
+        for (boost::unordered_map<MatePtr,Mate::State>::iterator it = mate_updates_.begin();
+             it != mate_updates_.end();
+             ++it)
+        {
+          MatePtr mate = it->first;
+          Mate::State &new_state = it->second;
+
+          if(new_state != Mate::NONE) {
+            mate->setState(new_state);
+            it->second = Mate::NONE;
+          }
+        }
       }
+    }
+
+    // Compute
+    for (boost::unordered_set<MatePtr>::iterator it = mates_.begin();
+         it != mates_.end();
+         ++it)
+    {
+      MatePtr mate = *it;
+      mate->update();
     }
   }
 
