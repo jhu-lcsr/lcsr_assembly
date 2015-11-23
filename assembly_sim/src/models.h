@@ -101,7 +101,7 @@ namespace assembly_sim {
     struct MateFactory : public MateFactoryBase
   {
     MateFactory(
-        MateModelPtr mate_model_, 
+        MateModelPtr mate_model_,
         gazebo::physics::ModelPtr gazebo_model_) :
       mate_model(mate_model_),
       gazebo_model(gazebo_model_)
@@ -436,8 +436,12 @@ namespace assembly_sim {
   };
 
 #if 1
-  struct DipoleMate : public ProximityMate
+  struct DipoleMate : public Mate
   {
+    double min_force_linear, min_force_angular, min_force_linear_deadband, min_force_angular_deadband;
+    double max_force_linear, max_force_angular, max_force_linear_deadband, max_force_angular_deadband;
+    double moment;
+
     DipoleMate(
         MateModelPtr mate_model,
         gazebo::physics::ModelPtr gazebo_model,
@@ -445,27 +449,15 @@ namespace assembly_sim {
         MatePointPtr male_mate_point_,
         AtomPtr female_atom,
         AtomPtr male_atom) :
-      ProximityMate(mate_model, gazebo_model, female_mate_point_, male_mate_point_, female_atom, male_atom)
+      Mate(mate_model, gazebo_model, female_mate_point_, male_mate_point_, female_atom, male_atom)
     {
       this->load();
     }
-    virtual void update()
+
+    virtual void load()
     {
+      sdf::ElementPtr mate_elem = model->mate_elem;
 
-    }
-  };
-
-#else
-  struct DipoleMateModel : public MateModel
-  {
-    DipoleMateModel(std::string type) : MateModel(type) {}
-
-    double min_force_linear, min_force_angular, min_force_linear_deadband, min_force_angular_deadband;
-    double max_force_linear, max_force_angular, max_force_linear_deadband, max_force_angular_deadband;
-    double moment;
-
-    virtual void load(sdf::ElementPtr mate_elem)
-    {
       // Get the attach/detach thresholds
       sdf::ElementPtr force_elem = mate_elem->GetElement("force");
       if(force_elem and force_elem->HasElement("min") and force_elem->HasElement("max")) {
@@ -494,8 +486,90 @@ namespace assembly_sim {
 
       // Get the dipole moments (along Z axis)
       sdf::ElementPtr moment_elem = mate_elem->GetElement("moment");
-      moment_elem->Get(moment);
+      moment_elem->GetValue()->Get(moment);
     }
+
+    virtual Mate::State getNewState()
+    {
+      return Mate::NONE;
+    }
+
+    virtual void update()
+    {
+      // Convenient references
+      AtomPtr &female_atom = this->female;
+      AtomPtr &male_atom = this->male;
+
+      MatePointPtr &female_mate_point = this->female_mate_point;
+      MatePointPtr &male_mate_point = this->male_mate_point;
+
+      // Compute the world pose of the female mate frame
+      KDL::Frame female_atom_frame;
+      to_kdl(female_atom->link->GetWorldPose(), female_atom_frame);
+      KDL::Frame female_mate_frame = female_atom_frame * female_mate_point->pose;
+      gazebo::math::Pose female_mate_pose;
+      to_gazebo(female_mate_frame, female_mate_pose);
+
+      // Compute the world pose of the male mate frame
+      // This takes into account the attachment displacement (anchor_offset)
+      KDL::Frame male_atom_frame;
+      to_kdl(male_atom->link->GetWorldPose(), male_atom_frame);
+      KDL::Frame male_mate_frame = male_atom_frame * male_mate_point->pose * this->anchor_offset;
+      gazebo::math::Pose male_mate_pose;
+      to_gazebo(male_mate_frame, male_mate_pose);
+
+      // compute twist between the two mate points
+      KDL::Twist twist_err = diff(female_mate_frame, male_mate_frame);
+
+      // Compute dipole force
+      static const double mu0 = 4*M_PI*1E-7;
+
+      KDL::Vector r = twist_err.vel;
+      double rn = r.Norm();
+      if(rn > 0.02) {
+        return;
+      }
+
+      rn = std::max(0.005, rn);
+      r = rn / r.Norm() * r;
+
+      KDL::Vector rh = (rn > 1E-5) ? twist_err.vel/rn : KDL::Vector(1,0,0);
+
+      const KDL::Vector
+        m1 = female_mate_frame * KDL::Vector(0,0,moment),
+           m2 = male_mate_frame * KDL::Vector(0,0,moment),
+           B1 = mu0 / 4 / M_PI / pow(rn,3) * ( 3 * (KDL::dot(m1,rh)*rh - m1)),
+           B2 = mu0 / 4 / M_PI / pow(rn,3) * ( 3 * (KDL::dot(m2,rh)*rh - m2)),
+           F1 = 3 * mu0 / 4 / M_PI / pow(rn,4) * ( (rh*m2)*m1 + (rh*m1)*m2 - 2*rh*KDL::dot(m1,m2) + 5*rh*KDL::dot(rh*m2,rh*m1) ),
+           F2 = -F1,
+           T1 = m1 * B2,
+           T2 = m2 * B1;
+
+      gzwarn<<"Dipole force: "<<F2<<std::endl;
+      // Apply force to links
+      gazebo::math::Vector3 F2gz(F2[0], F2[1], F2[2]);
+      gazebo::math::Vector3 F1gz(F1[0], F1[1], F1[2]);
+      gazebo::math::Vector3 T2gz(T2[0], T2[1], T2[2]);
+      gazebo::math::Vector3 T1gz(T1[0], T1[1], T1[2]);
+
+      female_atom->link->AddForceAtWorldPosition(F2gz, female_mate_pose.pos);
+      female_atom->link->AddTorque(T2gz);
+
+      male_atom->link->AddForceAtWorldPosition(F1gz, male_mate_pose.pos);
+      male_atom->link->AddTorque(T1gz);
+    }
+
+    virtual void setState(Mate::State pending_state)
+    {
+
+    }
+  };
+
+#else
+  struct DipoleMateModel : public MateModel
+  {
+    DipoleMateModel(std::string type) : MateModel(type) {}
+
 
     virtual Mate::State getNewState(const MatePtr mate)
     {

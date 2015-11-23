@@ -288,7 +288,7 @@
            mating surface is along positive z-axis
              -->
         <symmetry>
-          <rot>1 1 4</rot>
+          <rot>1 1 1</rot>
         </symmetry>
 
         <xacro:if value="1">
@@ -303,7 +303,7 @@
             </max>
           </force>
 
-          <moment>1.0</moment>
+          <moment>0.000001</moment>
         </xacro:if>
 
         <xacro:if value="1">
