@@ -2,12 +2,13 @@
 
 namespace assembly_sim {
   Mate::Mate(
+      MateModelPtr mate_model,
       gazebo::physics::ModelPtr gazebo_model,
       MatePointPtr female_mate_point_,
       MatePointPtr male_mate_point_,
       AtomPtr female_atom,
       AtomPtr male_atom) :
-    model(female_mate_point_->model),
+    model(mate_model),
     state(Mate::UNMATED),
     female(female_atom),
     male(male_atom),

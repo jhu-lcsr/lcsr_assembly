@@ -59,6 +59,7 @@ namespace assembly_sim {
       double max_trans_err_;
       double max_rot_err_;
 
+      std::map<std::string, MateFactoryBasePtr> mate_factories_;
       std::map<std::string, MateModelPtr> mate_models_;
       std::map<std::string, AtomModelPtr> atom_models_;
 

@@ -4,8 +4,11 @@
 #include "util.h"
 
 namespace assembly_sim {
+
   struct MateModel;
   struct AtomModel;
+
+  struct MateFactoryBase;
 
   struct Mate;
   struct MatePoint;
@@ -16,12 +19,61 @@ namespace assembly_sim {
 
   typedef boost::shared_ptr<Mate> MatePtr;
   typedef boost::shared_ptr<MatePoint> MatePointPtr;
+  typedef boost::shared_ptr<MateFactoryBase> MateFactoryBasePtr;
   typedef boost::shared_ptr<Atom> AtomPtr;
 
-  // The model for how a mate behaves
+  // The model for a type of mate
   struct MateModel
   {
-    MateModel(std::string type_) : type(type_) {}
+    MateModel(
+        std::string type_,
+        sdf::ElementPtr mate_elem_) :
+      type(type_),
+      mate_elem(mate_elem_)
+    {
+      // Get the mate template joint
+      joint_template_sdf = boost::make_shared<sdf::SDF>();
+      sdf::init(sdf::SDFPtr(joint_template_sdf));
+      sdf::readString(complete_sdf(mate_elem->GetElement("joint")->ToString("")), joint_template_sdf);
+      joint_template = joint_template_sdf->root->GetElement("model")->GetElement("joint");
+
+      // Get the mate symmetries
+      sdf::ElementPtr symmetry_elem = mate_elem->GetElement("symmetry");
+      if(symmetry_elem)
+      {
+        sdf::ElementPtr rot_elem = symmetry_elem->GetElement("rot");
+
+        if(rot_elem)
+        {
+          sdf::Vector3 rot_symmetry;
+          rot_elem->GetValue()->Get(rot_symmetry);
+
+          // compute symmetries
+          const double x_step = M_PI*2.0/rot_symmetry.x;
+          const double y_step = M_PI*2.0/rot_symmetry.y;
+          const double z_step = M_PI*2.0/rot_symmetry.z;
+
+          for(double ix=0; ix < rot_symmetry.x; ix++)
+          {
+            KDL::Rotation Rx = KDL::Rotation::RotX(ix * x_step);
+            for(double iy=0; iy < rot_symmetry.y; iy++)
+            {
+              KDL::Rotation Ry = KDL::Rotation::RotY(iy * y_step);
+              for(double iz=0; iz < rot_symmetry.z; iz++)
+              {
+                KDL::Rotation Rz = KDL::Rotation::RotZ(iz * z_step);
+                symmetries.push_back(KDL::Frame(Rx*Ry*Rz, KDL::Vector(0,0,0)));
+              }
+            }
+          }
+        }
+      }
+
+      // Add the identity if no symmetries were added
+      if(symmetries.size() == 0) {
+        symmetries.push_back(KDL::Frame());
+      }
+    }
 
     std::string type;
 
@@ -34,15 +86,47 @@ namespace assembly_sim {
     // The sdf template for the joint to be created
     boost::shared_ptr<sdf::SDF> joint_template_sdf;
     sdf::ElementPtr joint_template;
+  };
 
+  struct MateFactoryBase
+  {
     virtual MatePtr createMate(
-        gazebo::physics::ModelPtr gazebo_model,
         MatePointPtr female_mate_point,
         MatePointPtr male_mate_point,
         AtomPtr female_atom,
         AtomPtr male_atom) = 0;
   };
 
+  template <class MateType>
+    struct MateFactory : public MateFactoryBase
+  {
+    MateFactory(
+        MateModelPtr mate_model_, 
+        gazebo::physics::ModelPtr gazebo_model_) :
+      mate_model(mate_model_),
+      gazebo_model(gazebo_model_)
+    {}
+
+    MateModelPtr mate_model;
+    gazebo::physics::ModelPtr gazebo_model;
+
+    virtual MatePtr createMate(
+        MatePointPtr female_mate_point,
+        MatePointPtr male_mate_point,
+        AtomPtr female_atom,
+        AtomPtr male_atom)
+    {
+      return boost::make_shared<MateType>(
+          mate_model,
+          gazebo_model,
+          female_mate_point,
+          male_mate_point,
+          female_atom,
+          male_atom);
+    }
+  };
+
+  // This is a male or female point at which a given mate is located
   struct MatePoint
   {
     // The mate model used by this mate point
@@ -64,6 +148,7 @@ namespace assembly_sim {
     };
 
     Mate(
+      MateModelPtr mate_model,
       gazebo::physics::ModelPtr gazebo_model,
       MatePointPtr female_mate_point_,
       MatePointPtr male_mate_point_,
@@ -71,7 +156,7 @@ namespace assembly_sim {
       AtomPtr male_atom);
 
     // Update mates to attach / detach based on atom state (asynchronous with gazebo)
-    // This might store 
+    // This might store
     virtual State getNewState() = 0;
 
     // Update mate state (synchronous with gazebo)
@@ -135,15 +220,17 @@ namespace assembly_sim {
     gazebo::physics::LinkPtr link;
   };
 
+  // A mate
   struct ProximityMate : public Mate
   {
     ProximityMate(
+        MateModelPtr mate_model,
         gazebo::physics::ModelPtr gazebo_model,
         MatePointPtr female_mate_point_,
         MatePointPtr male_mate_point_,
         AtomPtr female_atom,
         AtomPtr male_atom) :
-      Mate(gazebo_model, female_mate_point_, male_mate_point_, female_atom, male_atom)
+      Mate(mate_model, gazebo_model, female_mate_point_, male_mate_point_, female_atom, male_atom)
     {
       this->load();
     }
@@ -348,63 +435,23 @@ namespace assembly_sim {
     }
   };
 
-  struct ProximityMateModel : public MateModel
-  {
-    ProximityMateModel(std::string type) : MateModel(type) {}
-
-    virtual MatePtr createMate(
-        gazebo::physics::ModelPtr gazebo_model,
-        MatePointPtr female_mate_point,
-        MatePointPtr male_mate_point,
-        AtomPtr female_atom,
-        AtomPtr male_atom)
-    {
-      return boost::make_shared<ProximityMate>(
-          gazebo_model,
-          female_mate_point,
-          male_mate_point,
-          female_atom,
-          male_atom);
-    }
-  };
-
-
 #if 1
   struct DipoleMate : public ProximityMate
   {
     DipoleMate(
+        MateModelPtr mate_model,
         gazebo::physics::ModelPtr gazebo_model,
         MatePointPtr female_mate_point_,
         MatePointPtr male_mate_point_,
         AtomPtr female_atom,
         AtomPtr male_atom) :
-      ProximityMate(gazebo_model, female_mate_point_, male_mate_point_, female_atom, male_atom)
+      ProximityMate(mate_model, gazebo_model, female_mate_point_, male_mate_point_, female_atom, male_atom)
     {
       this->load();
     }
     virtual void update()
     {
 
-    }
-  };
-
-  struct DipoleMateModel : public ProximityMateModel
-  {
-    DipoleMateModel(std::string type) : ProximityMateModel(type) {}
-
-    virtual MatePtr createMate(
-      gazebo::physics::ModelPtr gazebo_model,
-      MatePointPtr female_mate_point,
-      MatePointPtr male_mate_point,
-      AtomPtr female_atom,
-      AtomPtr male_atom)
-    {
-      return boost::make_shared<DipoleMate>(
-          gazebo_model,
-          female_mate_point,
-          male_mate_point,
-          female_atom,
-          male_atom);
     }
   };
 

@@ -111,65 +111,21 @@ namespace assembly_sim
         // Determine the type of mate model
         gzlog<<"Adding mate model for "<<mate_model_type<<std::endl;
 
-        MateModelPtr mate_model;
+        // Store this mate model
+        MateModelPtr mate_model = boost::make_shared<MateModel>(mate_model_type, mate_elem);
+        mate_models_[mate_model->type] = mate_model;
 
+        // Create a mate factory
+        MateFactoryBasePtr mate_factory;
         if(model == "proximity") {
-          mate_model = boost::make_shared<ProximityMateModel>(mate_model_type);
+          mate_factory = boost::make_shared<MateFactory<ProximityMate> >(mate_model, model_);
         } else if(model == "dipole") {
-          mate_model = boost::make_shared<DipoleMateModel>(mate_model_type);
+          mate_factory = boost::make_shared<MateFactory<DipoleMate> >(mate_model, model_);
         } else {
           gzerr<<"ERROR: \""<<model<<"\" is not a valid model type"<<std::endl;
           return;
         }
-
-        // Get the mate template joint
-        mate_model->joint_template_sdf = boost::make_shared<sdf::SDF>();
-        sdf::init(sdf::SDFPtr(mate_model->joint_template_sdf));
-        sdf::readString(complete_sdf(mate_elem->GetElement("joint")->ToString("")), mate_model->joint_template_sdf);
-        mate_model->joint_template = mate_model->joint_template_sdf->root->GetElement("model")->GetElement("joint");
-
-        // Get the mate symmetries
-        sdf::ElementPtr symmetry_elem = mate_elem->GetElement("symmetry");
-        if(symmetry_elem)
-        {
-          sdf::ElementPtr rot_elem = symmetry_elem->GetElement("rot");
-
-          if(rot_elem)
-          {
-            sdf::Vector3 rot_symmetry;
-            rot_elem->GetValue()->Get(rot_symmetry);
-
-            // compute symmetries
-            const double x_step = M_PI*2.0/rot_symmetry.x;
-            const double y_step = M_PI*2.0/rot_symmetry.y;
-            const double z_step = M_PI*2.0/rot_symmetry.z;
-
-            for(double ix=0; ix < rot_symmetry.x; ix++)
-            {
-              KDL::Rotation Rx = KDL::Rotation::RotX(ix * x_step);
-              for(double iy=0; iy < rot_symmetry.y; iy++)
-              {
-                KDL::Rotation Ry = KDL::Rotation::RotY(iy * y_step);
-                for(double iz=0; iz < rot_symmetry.z; iz++)
-                {
-                  KDL::Rotation Rz = KDL::Rotation::RotZ(iz * z_step);
-                  mate_model->symmetries.push_back(KDL::Frame(Rx*Ry*Rz, KDL::Vector(0,0,0)));
-                }
-              }
-            }
-          }
-        }
-
-        // Load the parameters from the mate model
-        mate_model->mate_elem = mate_elem;
-
-        // Add the identity if no symmetries were added
-        if(mate_model->symmetries.size() == 0) {
-          mate_model->symmetries.push_back(KDL::Frame());
-        }
-
-        // Store this mate model
-        mate_models_[mate_model->type] = mate_model;
+        mate_factories_[mate_model->type] = mate_factory; 
       }
 
       // Get the next atom element
@@ -322,8 +278,7 @@ namespace assembly_sim
             if(female_mate_point->model != male_mate_point->model) { continue; }
 
             // Construct the mate between these two mate points
-            MatePtr mate = female_mate_point->model->createMate(
-              model_,
+            MatePtr mate = mate_factories_[female_mate_point->model->type]->createMate(
               female_mate_point,
               male_mate_point,
               female_atom,
