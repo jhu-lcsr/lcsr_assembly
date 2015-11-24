@@ -149,7 +149,7 @@ namespace assembly_sim {
 
     Mate(
       MateModelPtr mate_model,
-      gazebo::physics::ModelPtr gazebo_model,
+      gazebo::physics::ModelPtr gazebo_model_,
       MatePointPtr female_mate_point_,
       MatePointPtr male_mate_point_,
       AtomPtr female_atom,
@@ -163,7 +163,7 @@ namespace assembly_sim {
     virtual void setState(State new_state) = 0;
 
     // Update calculations needed to be done every tick
-    virtual void update() = 0;
+    virtual void update(gazebo::common::Time timestep) = 0;
 
     // Mate model (same as mate points)
     MateModelPtr model;
@@ -176,6 +176,7 @@ namespace assembly_sim {
     // Joint associated with mate
     // If this is NULL then the mate is unoccupied
     gazebo::physics::JointPtr joint;
+    gazebo::physics::ModelPtr gazebo_model;
 
     // Atoms associated with this mate
     AtomPtr female;
@@ -365,7 +366,7 @@ namespace assembly_sim {
       };
     }
 
-    virtual void update()
+    virtual void update(gazebo::common::Time timestep)
     {
     }
 
@@ -442,6 +443,9 @@ namespace assembly_sim {
     double max_force_linear, max_force_angular, max_force_linear_deadband, max_force_angular_deadband;
     double moment;
 
+    KDL::Vector last_F1, last_F2;
+    KDL::Vector last_T1, last_T2;
+
     DipoleMate(
         MateModelPtr mate_model,
         gazebo::physics::ModelPtr gazebo_model,
@@ -449,7 +453,11 @@ namespace assembly_sim {
         MatePointPtr male_mate_point_,
         AtomPtr female_atom,
         AtomPtr male_atom) :
-      Mate(mate_model, gazebo_model, female_mate_point_, male_mate_point_, female_atom, male_atom)
+      Mate(mate_model, gazebo_model, female_mate_point_, male_mate_point_, female_atom, male_atom),
+      last_F1(0,0,0),
+      last_F2(0,0,0),
+      last_T1(0,0,0),
+      last_T2(0,0,0)
     {
       this->load();
     }
@@ -494,7 +502,7 @@ namespace assembly_sim {
       return Mate::NONE;
     }
 
-    virtual void update()
+    virtual void update(gazebo::common::Time timestep)
     {
       // Convenient references
       AtomPtr &female_atom = this->female;
@@ -527,6 +535,10 @@ namespace assembly_sim {
       KDL::Vector r = twist_err.vel;
       double rn = r.Norm();
       if(rn > 0.02) {
+        KDL::SetToZero(last_F1);
+        KDL::SetToZero(last_F2);
+        KDL::SetToZero(last_T1);
+        KDL::SetToZero(last_T2);
         return;
       }
 
@@ -535,28 +547,44 @@ namespace assembly_sim {
 
       KDL::Vector rh = (rn > 1E-5) ? twist_err.vel/rn : KDL::Vector(1,0,0);
 
+      double a = timestep.Double() / (0.0 + timestep.Double());
+
       const KDL::Vector
-        m1 = female_mate_frame * KDL::Vector(0,0,moment),
-           m2 = male_mate_frame * KDL::Vector(0,0,moment),
+        m1 = female_mate_frame.M * KDL::Vector(0,0,moment),
+           m2 = male_mate_frame.M * KDL::Vector(0,0,moment),
            B1 = mu0 / 4 / M_PI / pow(rn,3) * ( 3 * (KDL::dot(m1,rh)*rh - m1)),
            B2 = mu0 / 4 / M_PI / pow(rn,3) * ( 3 * (KDL::dot(m2,rh)*rh - m2)),
-           F1 = 3 * mu0 / 4 / M_PI / pow(rn,4) * ( (rh*m2)*m1 + (rh*m1)*m2 - 2*rh*KDL::dot(m1,m2) + 5*rh*KDL::dot(rh*m2,rh*m1) ),
-           F2 = -F1,
-           T1 = m1 * B2,
-           T2 = m2 * B1;
+           F2r = 3 * mu0 / 4 / M_PI / pow(rn,4) * ( (rh*m2)*m1 + (rh*m1)*m2 - 2*rh*KDL::dot(m1,m2) + 5*rh*KDL::dot(rh*m2,rh*m1) ),
+           F1r = -F2r,
+           T1r = m1 * B2,
+           T2r = m2 * B1,
+           F1 = a * F1r + (1.0 - a) * last_F1,
+           F2 = a * F2r + (1.0 - a) * last_F2,
+           T1 = a * T1r + (1.0 - a) * last_T1,
+           T2 = a * T2r + (1.0 - a) * last_T2;
 
-      gzwarn<<"Dipole force: "<<F2<<std::endl;
+      last_F1 = F1;
+      last_F2 = F2;
+      last_T1 = T1;
+      last_T2 = T2;
+
+      gzdebug<<"Dipole force: "<<std::setprecision(4)<<std::fixed
+        <<"female("<<female_atom->link->GetName()<<"#"<<female_mate_point->id<<") "<</*female_mate_frame<<*/" --> "<<m1<<" F1="<<F1
+        <<" - "
+        <<"  male("<<male_atom->link->GetName()<<"#"<<male_mate_point->id<<") "<</*male_mate_frame<<*/" --> "<<m2<<" F2="<<F2
+        <<""<<std::endl;
+
       // Apply force to links
       gazebo::math::Vector3 F2gz(F2[0], F2[1], F2[2]);
       gazebo::math::Vector3 F1gz(F1[0], F1[1], F1[2]);
       gazebo::math::Vector3 T2gz(T2[0], T2[1], T2[2]);
       gazebo::math::Vector3 T1gz(T1[0], T1[1], T1[2]);
 
-      female_atom->link->AddForceAtWorldPosition(F2gz, female_mate_pose.pos);
-      female_atom->link->AddTorque(T2gz);
+      female_atom->link->AddForceAtWorldPosition(F1gz, female_mate_pose.pos);
+      female_atom->link->AddTorque(T1gz);
 
-      male_atom->link->AddForceAtWorldPosition(F1gz, male_mate_pose.pos);
-      male_atom->link->AddTorque(T1gz);
+      male_atom->link->AddForceAtWorldPosition(F2gz, male_mate_pose.pos);
+      male_atom->link->AddTorque(T2gz);
     }
 
     virtual void setState(Mate::State pending_state)
@@ -755,4 +783,4 @@ namespace assembly_sim {
 
 }
 
-#endif // ifndef __LCSR_ASSEMBLY_ASSEMBLY_SIM_MODELS_H__
+#endif // ifndef __LCSR_ASSEMBLY_ASSEMBLY_SIM_MOgazebo::common::Time timestepDELS_H__

@@ -303,7 +303,7 @@
             </max>
           </force>
 
-          <moment>0.000001</moment>
+          <moment>0.1</moment>
         </xacro:if>
 
         <xacro:if value="1">

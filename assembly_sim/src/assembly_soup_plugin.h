@@ -78,6 +78,8 @@ namespace assembly_sim {
       clock_t last_tick_;
       int updates_per_second_;
 
+      gazebo::common::Time last_update_time_;
+
   };
 }
 

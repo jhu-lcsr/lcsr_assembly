@@ -3,7 +3,7 @@
 namespace assembly_sim {
   Mate::Mate(
       MateModelPtr mate_model,
-      gazebo::physics::ModelPtr gazebo_model,
+      gazebo::physics::ModelPtr gazebo_model_,
       MatePointPtr female_mate_point_,
       MatePointPtr male_mate_point_,
       AtomPtr female_atom,
@@ -15,7 +15,9 @@ namespace assembly_sim {
     female_mate_point(female_mate_point_),
     male_mate_point(male_mate_point_),
     joint_sdf(),
-    joint()
+    joint(),
+    gazebo_model(gazebo_model_),
+    anchor_offset(KDL::Frame::Identity())
   {
     // Make sure male and female mate points have the same model
     assert(female_mate_point->model == male_mate_point->model);

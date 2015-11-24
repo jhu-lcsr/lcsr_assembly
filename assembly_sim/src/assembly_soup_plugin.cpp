@@ -510,7 +510,7 @@ namespace assembly_sim
 
   // Called by the world update start event
   // This is where the logic that connects and updates joints needs to happen
-  void AssemblySoup::OnUpdate(const gazebo::common::UpdateInfo & /*_info*/)
+  void AssemblySoup::OnUpdate(const gazebo::common::UpdateInfo & _info)
   {
 
     if (!running_) {
@@ -520,6 +520,11 @@ namespace assembly_sim
       state_update_thread_ = boost::thread(boost::bind(&AssemblySoup::stateUpdateLoop, this));
       running_ = true;
       gzwarn << "Started." <<std::endl;
+    }
+
+    if(last_update_time_ == gazebo::common::Time::Zero) {
+      last_update_time_ = _info.simTime;
+      return;
     }
 
     // Try to lock mutex in order to change mate states
@@ -542,13 +547,16 @@ namespace assembly_sim
     }
 
     // Compute
+    gazebo::common::Time timestep = _info.simTime - last_update_time_;
     for (boost::unordered_set<MatePtr>::iterator it = mates_.begin();
          it != mates_.end();
          ++it)
     {
       MatePtr mate = *it;
-      mate->update();
+      mate->update(timestep);
     }
+
+    last_update_time_ = _info.simTime;
   }
 
   // Register this plugin with the simulator
