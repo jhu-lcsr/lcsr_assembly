@@ -548,6 +548,8 @@ namespace assembly_sim
 
     // Compute
     gazebo::common::Time timestep = _info.simTime - last_update_time_;
+
+    gazebo::common::Time now = gazebo::common::Time::GetWallTime();
     for (boost::unordered_set<MatePtr>::iterator it = mates_.begin();
          it != mates_.end();
          ++it)
@@ -555,6 +557,10 @@ namespace assembly_sim
       MatePtr mate = *it;
       mate->update(timestep);
     }
+    static const double a = 0.95;
+    static double dt = 0;
+    dt = (1.0-a)*(gazebo::common::Time::GetWallTime() - now).Double() + (a) * dt;
+    //gzwarn<<"update: "<<dt<<std::endl;
 
     last_update_time_ = _info.simTime;
   }

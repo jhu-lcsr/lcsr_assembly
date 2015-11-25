@@ -303,32 +303,37 @@
           </max>
         </force>
 
-        <xacro:if value="1">
+        <xacro:if value="0">
           <dipole>
             <position>0.0 0.0 0</position>
             <moment>0 0 0.3</moment>
+            <min_distance>0.004</min_distance>
           </dipole>
         </xacro:if>
 
-        <xacro:if value="0">
+        <xacro:if value="1">
           <dipole>
-            <position>0.01 0 0</position>
+            <position>0.01 0.01 0</position>
             <moment>0 0 0.08</moment>
+            <min_distance>0.004</min_distance>
           </dipole>
 
           <dipole>
-            <position>0.0 0.01 0</position>
+            <position>-0.1 0.01 0</position>
             <moment>0 0 0.08</moment>
+            <min_distance>0.004</min_distance>
           </dipole>
 
           <dipole>
-            <position>-0.01 0.0 0</position>
+            <position>-0.01 -0.01 0</position>
             <moment>0 0 0.08</moment>
+            <min_distance>0.004</min_distance>
           </dipole>
 
           <dipole>
-            <position>0.0 -0.01 0</position>
+            <position>0.01 -0.01 0</position>
             <moment>0 0 0.08</moment>
+            <min_distance>0.004</min_distance>
           </dipole>
         </xacro:if>
 
