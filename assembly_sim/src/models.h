@@ -410,8 +410,8 @@ namespace assembly_sim {
             this->requestUpdate(Mate::UNMATED);
             break;
           } else if(
-              twist_err.vel.Norm() < mate_error.vel.Norm() and
-              twist_err.rot.Norm() < mate_error.rot.Norm() + 1E-4)
+              twist_err.vel.Norm() / mate_error.vel.Norm() < 0.8 and
+              twist_err.rot.Norm() / mate_error.rot.Norm() < 0.8)
           {
             // Re-mate but closer to the desired point
             gzwarn<<"remate "<<getDescription()<<std::endl;
@@ -474,7 +474,7 @@ namespace assembly_sim {
 
   };
 
-  struct DipoleMate : public ProximityMateBase
+  struct DipoleMate : public ProximityMate
   {
     //TODO: Remove these, unused
     double min_force_linear, min_force_angular, min_force_linear_deadband, min_force_angular_deadband;
@@ -498,7 +498,7 @@ namespace assembly_sim {
         MatePointPtr male_mate_point_,
         AtomPtr female_atom,
         AtomPtr male_atom) :
-      ProximityMateBase(mate_model, gazebo_model, female_mate_point_, male_mate_point_, female_atom, male_atom)
+      ProximityMate(mate_model, gazebo_model, female_mate_point_, male_mate_point_, female_atom, male_atom)
     {
       this->load();
     }
@@ -565,14 +565,6 @@ namespace assembly_sim {
       }
     }
 
-    virtual void queueUpdate()
-    {
-    }
-
-    virtual void updateConstraints()
-    {
-    }
-
     virtual void update(gazebo::common::Time timestep)
     {
       // Convenient references
@@ -581,6 +573,11 @@ namespace assembly_sim {
 
       MatePointPtr &female_mate_point = this->female_mate_point;
       MatePointPtr &male_mate_point = this->male_mate_point;
+
+      // Don't apply magnetic force if the mate is attached
+      if(state == Mate::MATED) {
+        return;
+      }
 
       // Compute the world pose of the female mate frame
       KDL::Frame female_atom_frame;
