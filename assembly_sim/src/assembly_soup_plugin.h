@@ -1,6 +1,8 @@
 #ifndef __ASSEMBLY_SIM_ASSEMBLY_SOUP_PLUGIN_H
 #define __ASSEMBLY_SIM_ASSEMBLY_SOUP_PLUGIN_H
 
+#include <queue>
+
 #include <ros/ros.h>
 
 #include <boost/bind.hpp>
@@ -49,7 +51,7 @@ namespace assembly_sim {
       // update thread
       boost::thread state_update_thread_;
       void stateUpdateLoop();
-      void getStateUpdates();
+      void queueStateUpdates();
       bool running_;
 
     protected:
@@ -69,7 +71,7 @@ namespace assembly_sim {
       boost::unordered_set<MatePtr> mates_;
 
       // mates to attach/detach in OnUpdate thread
-      boost::unordered_map<MatePtr, Mate::State> mate_updates_;
+      std::queue<MatePtr> mate_update_queue_;
 
       // for broadcasting coordinate transforms
       bool broadcast_tf_;

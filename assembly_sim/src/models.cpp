@@ -1,3 +1,5 @@
+#include <boost/format.hpp>
+
 #include "models.h"
 
 namespace assembly_sim {
@@ -10,6 +12,7 @@ namespace assembly_sim {
       AtomPtr male_atom) :
     model(mate_model),
     state(Mate::UNMATED),
+    pending_state(Mate::NONE),
     female(female_atom),
     male(male_atom),
     female_mate_point(female_mate_point_),
@@ -30,6 +33,8 @@ namespace assembly_sim {
       <<male_atom->link->GetName()<<"#"
       <<male_mate_point->id<<")"
       <<std::endl;
+
+    description = boost::str(boost::format("%s#%d -> %s#%d")% female_atom->link->GetName()% female_mate_point->id% male_atom->link->GetName()% male_mate_point->id);
 
     // Get the joint type
     std::string joint_type;

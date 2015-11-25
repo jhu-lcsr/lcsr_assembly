@@ -166,6 +166,7 @@ namespace assembly_sim
         MatePointPtr mate_point;
 
         if(boost::iequals(gender, "female")) {
+#if 0
           for(std::vector<KDL::Frame>::iterator pose_it = mate_model->symmetries.begin();
               pose_it != mate_model->symmetries.end();
               ++pose_it)
@@ -181,6 +182,18 @@ namespace assembly_sim
 
             atom_model->female_mate_points.push_back(mate_point);
           }
+#else
+          mate_point = boost::make_shared<MatePoint>();
+          mate_point->model = mate_model;
+          mate_point->pose = base_pose;
+          mate_point->id =
+            atom_model->female_mate_points.size()
+            + atom_model->male_mate_points.size();
+
+          gzwarn<<"Adding female mate point "<<atom_model->type<<"#"<<mate_point->id<<" pose: "<<std::endl<<mate_point->pose<<std::endl;
+
+          atom_model->female_mate_points.push_back(mate_point);
+#endif
         } else if(boost::iequals(gender, "male")) {
           mate_point = boost::make_shared<MatePoint>();
           mate_point->model = mate_model;
@@ -296,7 +309,7 @@ namespace assembly_sim
         boost::bind(&AssemblySoup::OnUpdate, this, _1));
   }
 
-  void AssemblySoup::getStateUpdates() {
+  void AssemblySoup::queueStateUpdates() {
 
     static tf::TransformBroadcaster br;
 
@@ -320,17 +333,18 @@ namespace assembly_sim
       }
 
       // Check if this mate is already scheduled to be updated
-      if(mate_updates_.find(mate) != mate_updates_.end() and mate_updates_[mate] != Mate::NONE) {
-        gzwarn<<"mate already scheduled."<<std::endl;
+      if(mate->needsUpdate()) {
+        gzwarn<<"mate "<<mate->getDescription()<<" already scheduled."<<std::endl;
         continue;
       }
 
-      // Determine if this mate needs to change state
-      mate_updates_[mate] = mate->getNewState();
+      // Queue any updates
+      mate->queueUpdate();
 
       // Schedule mates to detach / attach etc
-      if(mate_updates_[mate] != Mate::NONE) {
-        gzwarn<<"mate needs to be updated"<<std::endl;
+      if(mate->needsUpdate()) {
+        gzwarn<<"mate /"<<mate->getDescription()<<" needs to be updated"<<std::endl;
+        mate_update_queue_.push(mate);
       }
 
       // Broadcast the TF frame for this joint
@@ -503,7 +517,7 @@ namespace assembly_sim
         gazebo::common::Time::Sleep(last_update_time + update_period - now);
       } else {
         last_update_time = world->GetSimTime();
-        this->getStateUpdates();
+        this->queueStateUpdates();
       }
     }
   }
@@ -514,7 +528,7 @@ namespace assembly_sim
   {
 
     if (!running_) {
-      this->getStateUpdates();
+      this->queueStateUpdates();
 
       gzwarn << "Starting thread..." << std::endl;
       state_update_thread_ = boost::thread(boost::bind(&AssemblySoup::stateUpdateLoop, this));
@@ -527,22 +541,13 @@ namespace assembly_sim
       return;
     }
 
-    // Try to lock mutex in order to change mate states
+    // Try to lock mutex in order to change mate constraints
     {
       boost::mutex::scoped_lock update_lock(update_mutex_, boost::try_to_lock);
-      if (update_lock) {
-        for (boost::unordered_map<MatePtr,Mate::State>::iterator it = mate_updates_.begin();
-             it != mate_updates_.end();
-             ++it)
-        {
-          MatePtr mate = it->first;
-          Mate::State &new_state = it->second;
-
-          if(new_state != Mate::NONE) {
-            mate->setState(new_state);
-            it->second = Mate::NONE;
-          }
-        }
+      while(not mate_update_queue_.empty()) {
+        gzwarn<<"updating mate "<<mate_update_queue_.front()->getDescription()<<std::endl;
+        mate_update_queue_.front()->updateConstraints();
+        mate_update_queue_.pop();
       }
     }
 

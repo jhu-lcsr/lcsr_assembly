@@ -71,7 +71,7 @@ namespace assembly_sim {
 
       // Add the identity if no symmetries were added
       if(symmetries.size() == 0) {
-        symmetries.push_back(KDL::Frame());
+        symmetries.push_back(KDL::Frame::Identity());
       }
     }
 
@@ -155,21 +155,33 @@ namespace assembly_sim {
       AtomPtr female_atom,
       AtomPtr male_atom);
 
-    // Update mates to attach / detach based on atom state (asynchronous with gazebo)
-    // This might store
-    virtual State getNewState() = 0;
+    // Determine if the mate's attachment state needs to be updated
+    // Asynchronous with Gazebo's update loop
+    virtual void queueUpdate() = 0;
 
-    // Update mate state (synchronous with gazebo)
-    virtual void setState(State new_state) = 0;
+    // Update the constraint connectivity
+    virtual void updateConstraints() = 0;
 
     // Update calculations needed to be done every tick
     virtual void update(gazebo::common::Time timestep) = 0;
 
+    // Update functions
+    void requestUpdate(State new_pending_state) { pending_state = new_pending_state; }
+    bool needsUpdate() const { return pending_state != NONE; }
+    void serviceUpdate() { pending_state = NONE; }
+    State getUpdate() { return pending_state; }
+
+    // Introspection
+    std::string description;
+    std::string getDescription() {
+      return description;
+    }
+
     // Mate model (same as mate points)
     MateModelPtr model;
 
-    // Attachment state
-    Mate::State state;
+    // Attachment states
+    Mate::State state, pending_state;
 
     // Joint SDF
     sdf::ElementPtr joint_sdf;
@@ -222,20 +234,8 @@ namespace assembly_sim {
   };
 
   // A mate
-  struct ProximityMate : public Mate
+  struct ProximityMateBase : public Mate
   {
-    ProximityMate(
-        MateModelPtr mate_model,
-        gazebo::physics::ModelPtr gazebo_model,
-        MatePointPtr female_mate_point_,
-        MatePointPtr male_mate_point_,
-        AtomPtr female_atom,
-        AtomPtr male_atom) :
-      Mate(mate_model, gazebo_model, female_mate_point_, male_mate_point_, female_atom, male_atom)
-    {
-      this->load();
-    }
-
     // Threshold for attaching a mate
     double attach_threshold_linear;
     double attach_threshold_angular;
@@ -244,9 +244,24 @@ namespace assembly_sim {
     double detach_threshold_linear;
     double detach_threshold_angular;
 
+    std::vector<KDL::Frame>::iterator mated_symmetry;
     KDL::Twist mate_error;
 
-    void load()
+    ProximityMateBase(
+        MateModelPtr mate_model,
+        gazebo::physics::ModelPtr gazebo_model,
+        MatePointPtr female_mate_point_,
+        MatePointPtr male_mate_point_,
+        AtomPtr female_atom,
+        AtomPtr male_atom) :
+      Mate(mate_model, gazebo_model, female_mate_point_, male_mate_point_, female_atom, male_atom),
+      mated_symmetry(mate_model->symmetries.end())
+    {
+      this->load_proximity_params();
+    }
+
+  protected:
+    virtual void load_proximity_params()
     {
       sdf::ElementPtr mate_elem = model->mate_elem;
 
@@ -274,104 +289,7 @@ namespace assembly_sim {
       }
     }
 
-    virtual Mate::State getNewState()
-    {
-      Mate::State new_state = Mate::NONE;
-
-      // Convenient references
-      AtomPtr &female_atom = this->female;
-      AtomPtr &male_atom = this->male;
-
-      MatePointPtr &female_mate_point = this->female_mate_point;
-      MatePointPtr &male_mate_point = this->male_mate_point;
-
-      KDL::Frame female_atom_frame;
-      to_kdl(female_atom->link->GetWorldPose(), female_atom_frame);
-      KDL::Frame female_mate_frame = female_atom_frame * female_mate_point->pose;
-
-      KDL::Frame male_atom_frame;
-      to_kdl(male_atom->link->GetWorldPose(), male_atom_frame);
-
-      // Compute the world pose of the male mate frame
-      // This takes into account the attachment displacement (anchor_offset)
-      KDL::Frame male_mate_frame = male_atom_frame * male_mate_point->pose * this->anchor_offset;
-
-      // compute twist between the two mate points
-      KDL::Twist twist_err = diff(female_mate_frame, male_mate_frame);
-
-      // Only analyze mates with associated joints
-      if(this->joint) {
-        //if(female_mate_point->model->id == 0) gzwarn<<" --- err linear: "<<twist_err.vel.Norm()<<" angular: "<<twist_err.rot.Norm()<<std::endl;
-
-        // Determine if mated atoms need to be detached
-        if(this->joint->GetParent() and this->joint->GetChild()) {
-          //gzwarn<<"Parts are mated!"<<std::endl;
-          //gzwarn<<twist_err.vel.Norm()<<", "<<twist_err.rot.Norm()<<" VS "<<this->mate_error.vel.Norm()<<", "<<this->mate_error.rot.Norm()<<std::endl;
-
-          if(twist_err.vel.Norm() > detach_threshold_linear or
-             twist_err.rot.Norm() > detach_threshold_angular)
-          {
-            new_state = Mate::UNMATED;
-          } else if(
-              twist_err.vel.Norm() <= this->mate_error.vel.Norm() and
-              twist_err.rot.Norm() <= this->mate_error.rot.Norm() + 1E-4)
-          {
-            // re-mate but closer to the desired point
-            this->mate_error = twist_err;
-            new_state = Mate::MATED;
-          }
-
-        } else {
-          //gzwarn<<"Parts are not mated!"<<std::endl;
-          if(twist_err.vel.Norm() < attach_threshold_linear and
-             twist_err.rot.Norm() < attach_threshold_angular)
-          {
-            this->mate_error = twist_err;
-            new_state = Mate::MATED;
-          }
-        }
-
-      } else {
-        gzwarn<<"No joint for mate from "<<female_atom->link->GetName()<<" -> "<<male_atom->link->GetName()<<std::endl;
-      }
-
-      return new_state;
-    }
-
-    virtual void setState(Mate::State pending_state)
-    {
-      switch(pending_state) {
-        case Mate::NONE:
-          break;
-
-        case Mate::UNMATED:
-          if(this->state == Mate::MATED) {
-            gzwarn<<"Detaching "<<this->female->link->GetName()<<" from "<<this->male->link->GetName()<<"!"<<std::endl;
-            this->detach();
-          }
-          break;
-
-        case Mate::MATING:
-          gzwarn<<"ProximityMate does not support Mate::MATING"<<std::endl;
-          break;
-
-        case Mate::MATED:
-          if(this->state != Mate::MATED) {
-            gzwarn<<"Attaching "<<this->female->link->GetName()<<" to "<<this->male->link->GetName()<<"!"<<std::endl;
-          } else {
-            gzwarn<<"Reattaching "<<this->female->link->GetName()<<" to "<<this->male->link->GetName()<<"!"<<std::endl;
-          }
-          this->attach();
-          break;
-      };
-    }
-
-    virtual void update(gazebo::common::Time timestep)
-    {
-    }
-
-  private:
-    void attach()
+    virtual void attach()
     {
       // Get the male atom frame
       KDL::Frame male_atom_frame;
@@ -423,35 +341,154 @@ namespace assembly_sim {
       //gzwarn<<" ---- initial anchor pose: "<<std::endl<<initial_anchor_frame<<std::endl;
       //gzwarn<<" ---- actual anchor pose: "<<std::endl<<actual_anchor_frame<<std::endl;
       gzwarn<<" ---- mate error: "<<this->mate_error.vel.Norm()<<", "<<this->mate_error.rot.Norm()<<std::endl;
-
-      this->state = Mate::MATED;
     }
 
-    void detach()
+    virtual void detach()
     {
       // Simply detach joint
-      this->joint->Detach();
-
-      this->state = Mate::UNMATED;
+      joint->Detach();
     }
   };
 
-#if 1
-  struct DipoleMate : public Mate
+  struct ProximityMate : public ProximityMateBase
   {
+    ProximityMate(
+        MateModelPtr mate_model,
+        gazebo::physics::ModelPtr gazebo_model,
+        MatePointPtr female_mate_point_,
+        MatePointPtr male_mate_point_,
+        AtomPtr female_atom,
+        AtomPtr male_atom) :
+      ProximityMateBase(mate_model, gazebo_model, female_mate_point_, male_mate_point_, female_atom, male_atom)
+    {
+    }
+
+    virtual void queueUpdate()
+    {
+      // Convenient references
+      AtomPtr &female_atom = female;
+      AtomPtr &male_atom = male;
+
+      // Only analyze mates with associated joints
+      if(!joint) {
+        gzwarn<<"No joint for mate from "<<female_atom->link->GetName()<<" -> "<<male_atom->link->GetName()<<std::endl;
+        return;
+      }
+
+      KDL::Frame female_atom_frame;
+      to_kdl(female_atom->link->GetWorldPose(), female_atom_frame);
+
+      KDL::Frame male_atom_frame;
+      to_kdl(male_atom->link->GetWorldPose(), male_atom_frame);
+
+      // Iterate over all symmetric mating positions
+      for(std::vector<KDL::Frame>::iterator it_sym = model->symmetries.begin();
+          it_sym != model->symmetries.end();
+          ++it_sym)
+      {
+        // Compute the world frame of the female mate frame
+        // This takes into account symmetries in the mate
+        KDL::Frame female_mate_frame = female_atom_frame * female_mate_point->pose * (*it_sym);
+
+        // Compute the world pose of the male mate frame
+        // This takes into account the attachment displacement (anchor_offset)
+        KDL::Frame male_mate_frame = male_atom_frame * male_mate_point->pose * anchor_offset;
+
+        // compute twist between the two mate points
+        KDL::Twist twist_err = diff(female_mate_frame, male_mate_frame);
+        //gzwarn<<female_mate_point->pose.M<<std::endl;
+        //gzwarn<<twist_err.vel.Norm()<<", "<<twist_err.rot.Norm()<<" VS "<<this->mate_error.vel.Norm()<<", "<<this->mate_error.rot.Norm()<<std::endl;
+
+        if(state == Mate::MATED and it_sym == mated_symmetry)
+        {
+          // Determine if active mate needs to be detached
+          if(twist_err.vel.Norm() > detach_threshold_linear or
+             twist_err.rot.Norm() > detach_threshold_angular)
+          {
+            // The mate points are beyond the detach threhold and should be demated
+            gzwarn<<"unmate "<<getDescription()<<std::endl;
+            this->requestUpdate(Mate::UNMATED);
+            break;
+          } else if(
+              twist_err.vel.Norm() < mate_error.vel.Norm() and
+              twist_err.rot.Norm() < mate_error.rot.Norm() + 1E-4)
+          {
+            // Re-mate but closer to the desired point
+            gzwarn<<"remate "<<getDescription()<<std::endl;
+            this->mate_error = twist_err;
+            this->requestUpdate(Mate::MATED);
+            break;
+          }
+        } else {
+          // Determine if mated atoms need to be attached
+          if(twist_err.vel.Norm() < attach_threshold_linear and
+             twist_err.rot.Norm() < attach_threshold_angular)
+          {
+            // The mate points are within the attach threshold and should be mated
+            gzwarn<<"demate "<<getDescription()<<std::endl;
+            this->mated_symmetry = it_sym;
+            this->mate_error = twist_err;
+            this->requestUpdate(Mate::MATED);
+            break;
+          }
+        }
+      }
+    }
+
+    virtual void updateConstraints()
+    {
+      switch(this->getUpdate()) {
+        case Mate::NONE:
+          break;
+
+        case Mate::UNMATED:
+          if(state == Mate::MATED) {
+            gzwarn<<"Detaching "<<female->link->GetName()<<" from "<<male->link->GetName()<<"!"<<std::endl;
+            this->detach();
+            this->state = Mate::UNMATED;
+            this->mated_symmetry = model->symmetries.end();
+          }
+          break;
+
+        case Mate::MATING:
+          gzwarn<<"ProximityMate does not support Mate::MATING"<<std::endl;
+          break;
+
+        case Mate::MATED:
+          if(state != Mate::MATED) {
+            gzwarn<<"Attaching "<<female->link->GetName()<<" to "<<male->link->GetName()<<"!"<<std::endl;
+          } else {
+            gzwarn<<"Reattaching "<<female->link->GetName()<<" to "<<male->link->GetName()<<"!"<<std::endl;
+          }
+          this->attach();
+          this->state = Mate::MATED;
+          break;
+      };
+
+      this->serviceUpdate();
+    }
+
+    virtual void update(gazebo::common::Time timestep)
+    {
+    }
+
+  };
+
+  struct DipoleMate : public ProximityMateBase
+  {
+    //TODO: Remove these, unused
     double min_force_linear, min_force_angular, min_force_linear_deadband, min_force_angular_deadband;
     double max_force_linear, max_force_angular, max_force_linear_deadband, max_force_angular_deadband;
     double moment;
 
-    KDL::Vector last_F1, last_F2;
-    KDL::Vector last_T1, last_T2;
-
+    // Individual magnetic dipole parameters
     struct Dipole {
       double min_distance;
       KDL::Vector position;
       KDL::Vector moment;
     };
 
+    // Dipoles involved in this mate
     std::vector<Dipole> dipoles;
 
     DipoleMate(
@@ -461,11 +498,7 @@ namespace assembly_sim {
         MatePointPtr male_mate_point_,
         AtomPtr female_atom,
         AtomPtr male_atom) :
-      Mate(mate_model, gazebo_model, female_mate_point_, male_mate_point_, female_atom, male_atom),
-      last_F1(0,0,0),
-      last_F2(0,0,0),
-      last_T1(0,0,0),
-      last_T2(0,0,0)
+      ProximityMateBase(mate_model, gazebo_model, female_mate_point_, male_mate_point_, female_atom, male_atom)
     {
       this->load();
     }
@@ -474,7 +507,7 @@ namespace assembly_sim {
     {
       sdf::ElementPtr mate_elem = model->mate_elem;
 
-      // Get the attach/detach thresholds
+      // Get force attach/detach thresholds
       sdf::ElementPtr force_elem = mate_elem->GetElement("force");
       if(force_elem and force_elem->HasElement("min") and force_elem->HasElement("max")) {
 
@@ -526,15 +559,18 @@ namespace assembly_sim {
         dipole.min_distance = min_distance;
 
         dipoles.push_back(dipole);
-        
+
         // Get the next dipole element
         dipole_elem = dipole_elem->GetNextElement(dipole_elem->GetName());
       }
     }
 
-    virtual Mate::State getNewState()
+    virtual void queueUpdate()
     {
-      return Mate::NONE;
+    }
+
+    virtual void updateConstraints()
+    {
     }
 
     virtual void update(gazebo::common::Time timestep)
@@ -561,15 +597,13 @@ namespace assembly_sim {
       gazebo::math::Pose male_mate_pose;
       to_gazebo(male_mate_frame, male_mate_pose);
 
-      // compute twist between the two mate points
-      KDL::Twist twist_err = diff(female_mate_frame, male_mate_frame);
-
-      KDL::Vector r = twist_err.vel;
-      double rn = r.Norm();
-      if(rn > 0.03) {
+      // compute twist between the two mate points to determine if we need to simulate dipole interactions
+      mate_error = diff(female_mate_frame, male_mate_frame);
+      if(mate_error.vel.Norm() > 0.03) {
         return;
       }
 
+      // compute and apply forces between all male/female pairs of dipoles
       for(std::vector<Dipole>::iterator it_fdp=dipoles.begin(); it_fdp!=dipoles.end(); ++it_fdp)
       {
         for(std::vector<Dipole>::iterator it_mdp=dipoles.begin(); it_mdp!=dipoles.end(); ++it_mdp)
@@ -610,7 +644,7 @@ namespace assembly_sim {
             //<<" - "
             //<<"  male("<<male_atom->link->GetName()<<"#"<<male_mate_point->id<<") "<<[>male_mate_frame<<<]" --> "<<m2<<" F2="<<F2
             //<<""<<std::endl;
-          
+
           // Apply force to links
           const gazebo::math::Vector3 F2gz(F2[0], F2[1], F2[2]);
           const gazebo::math::Vector3 F1gz(F1[0], F1[1], F1[2]);
@@ -625,201 +659,7 @@ namespace assembly_sim {
         }
       }
     }
-
-    virtual void setState(Mate::State pending_state)
-    {
-
-    }
   };
-
-#else
-  struct DipoleMateModel : public MateModel
-  {
-    DipoleMateModel(std::string type) : MateModel(type) {}
-
-
-    virtual Mate::State getNewState(const MatePtr mate)
-    {
-      Mate::State new_state = Mate::NONE;
-
-      // Convenient references
-      AtomPtr &female_atom = this->female;
-      AtomPtr &male_atom = this->male;
-
-      MatePointPtr &female_mate_point = this->female_mate_point;
-      MatePointPtr &male_mate_point = this->male_mate_point;
-
-      KDL::Frame female_atom_frame;
-      to_kdl(female_atom->link->GetWorldPose(), female_atom_frame);
-      KDL::Frame female_mate_frame = female_atom_frame * female_mate_point->pose;
-
-      KDL::Frame male_atom_frame;
-      to_kdl(male_atom->link->GetWorldPose(), male_atom_frame);
-
-      // Compute the world pose of the male mate frame
-      // This takes into account the attachment displacement (anchor_offset)
-      KDL::Frame male_mate_frame = male_atom_frame * male_mate_point->pose * this->anchor_offset;
-
-      // compute twist between the two mate points
-      KDL::Twist twist_err = diff(female_mate_frame, male_mate_frame);
-
-      // Only analyze mates with associated joints
-      if(this->joint) {
-        //if(female_mate_point->model->id == 0) gzwarn<<" --- err linear: "<<twist_err.vel.Norm()<<" angular: "<<twist_err.rot.Norm()<<std::endl;
-
-        // Determine if mated atoms need to be detached
-        if(this->joint->GetParent() and this->joint->GetChild()) {
-          //gzwarn<<"Parts are mated!"<<std::endl;
-
-          if(twist_err.vel.Norm() > detach_threshold_linear or
-             twist_err.rot.Norm() > detach_threshold_angular)
-          {
-            new_state = Mate::UNMATED;
-          } else if(
-              twist_err.vel.Norm() < this->mate_error.vel.Norm() and
-              twist_err.rot.Norm() < this->mate_error.rot.Norm())
-          {
-            // re-mate but closer to the desired point
-            this->mate_error = twist_err;
-            new_state = Mate::MATED;
-          }
-
-        } else {
-          //gzwarn<<"Parts are not mated!"<<std::endl;
-          if(twist_err.vel.Norm() < attach_threshold_linear and
-             twist_err.rot.Norm() < attach_threshold_angular)
-          {
-            this->mate_error = twist_err;
-            new_state = Mate::MATED;
-          }
-        }
-
-      } else {
-        gzwarn<<"No joint for mate from "<<female_atom->link->GetName()<<" -> "<<male_atom->link->GetName()<<std::endl;
-      }
-
-      return new_state;
-    }
-
-    virtual void setState(MatePtr mate, Mate::State pending_state)
-    {
-      switch(pending_state) {
-        case Mate::NONE:
-          break;
-
-        case Mate::UNMATED:
-          if(this->state == Mate::MATED) {
-            gzwarn<<"Detaching "<<this->female->link->GetName()<<" from "<<this->male->link->GetName()<<"!"<<std::endl;
-            this->detach(mate);
-          }
-          break;
-
-        case Mate::MATING:
-          gzwarn<<"Attracting "<<this->female->link->GetName()<<" to "<<this->male->link->GetName()<<"!"<<std::endl;
-          if(this->state != Mate::MATED) {
-          } else {
-          }
-          break;
-
-        case Mate::MATED:
-          if(this->state != Mate::MATED) {
-            gzwarn<<"Attaching "<<this->female->link->GetName()<<" to "<<this->male->link->GetName()<<"!"<<std::endl;
-          } else {
-            gzwarn<<"Reattaching "<<this->female->link->GetName()<<" to "<<this->male->link->GetName()<<"!"<<std::endl;
-          }
-          this->attach(mate);
-          break;
-      };
-
-      this->pending_state = Mate::NONE;
-    }
-
-    virtual void update(MatePtr mate)
-    {
-      // Compute new force
-      // TODO
-
-      switch(this->state) {
-        case Mate::NONE:
-          break;
-
-        case Mate::UNMATED:
-          break;
-
-        case Mate::MATING:
-          break;
-
-        case Mate::MATED:
-          break;
-      };
-    }
-
-    void attach(MatePtr mate)
-    {
-      // Get the male atom frame
-      KDL::Frame male_atom_frame;
-      to_kdl(this->male->link->GetWorldPose(), male_atom_frame);
-
-      // detach the atoms if they're already attached (they're going to be re-attached)
-      this->detach(mate);
-
-      // attach two atoms via joint
-      this->joint->Attach(this->female->link, this->male->link);
-
-      // set stiffness based on proximity to goal
-      double lin_err = this->mate_error.vel.Norm();
-      double ang_err = this->mate_error.rot.Norm();
-      double max_lin_err = detach_threshold_linear;
-      double max_ang_err = detach_threshold_angular;
-      //this->joint->SetAttribute(
-      //"stop_erp", 0,
-      //this->max_stop_erp *
-      //std::min(std::max(0.0, max_lin_err - lin_err), max_lin_err) / max_lin_err *
-      //std::min(std::max(0.0, max_ang_err - ang_err), max_ang_err) / max_ang_err);
-      //this->joint->SetAttribute(
-      //"erp", 0,
-      //this->max_erp *
-      //std::min(std::max(0.0, max_lin_err - lin_err), max_lin_err) / max_lin_err *
-      //std::min(std::max(0.0, max_ang_err - ang_err), max_ang_err) / max_ang_err);
-
-      //this->joint->SetHighStop(0, lin_err);
-
-      // get the location of the joint in the child (male atom) frame, as specified by the SDF
-      KDL::Frame initial_anchor_frame, actual_anchor_frame;
-      to_kdl(this->joint->GetInitialAnchorPose(), initial_anchor_frame);
-      actual_anchor_frame = male_atom_frame*initial_anchor_frame;
-
-      // Set the anchor position (location of the joint)
-      // This is in the WORLD frame
-      // IMPORTANT: This avoids injecting energy into the system in the form of a constraint violation
-      gazebo::math::Pose actual_anchor_pose;
-      to_gazebo(actual_anchor_frame, actual_anchor_pose);
-      this->joint->SetAnchor(0, actual_anchor_pose.pos);
-
-      // Save the anchor offset (mate point to anchor)
-      this->anchor_offset = (
-          actual_anchor_frame.Inverse() *   // anchor to world
-          male_atom_frame *                 // world to atom
-          this->male_mate_point->pose // atom to mate point
-          ).Inverse();
-
-      //gzwarn<<" ---- initial anchor pose: "<<std::endl<<initial_anchor_frame<<std::endl;
-      //gzwarn<<" ---- actual anchor pose: "<<std::endl<<actual_anchor_frame<<std::endl;
-      gzwarn<<" ---- mate error: "<<this->mate_error.vel.Norm()<<", "<<this->mate_error.rot.Norm()<<std::endl;
-
-      this->state = Mate::MATED;
-    }
-
-    void detach(MatePtr mate)
-    {
-      // Simply detach joint
-      this->joint->Detach();
-
-      this->state = Mate::UNMATED;
-    }
-  };
-#endif
-
 }
 
 #endif // ifndef __LCSR_ASSEMBLY_ASSEMBLY_SIM_MOgazebo::common::Time timestepDELS_H__

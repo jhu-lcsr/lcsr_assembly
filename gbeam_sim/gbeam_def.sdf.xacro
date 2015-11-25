@@ -283,26 +283,15 @@
 
   <!-- GBeam mates -->
   <xacro:macro name="gbeam_mate" params="linear_attach angular_attach linear_detach angular_detach">
-    <mate_model type="gbeam" model="dipole">
+    <mate_model type="gbeam" model="proximity">
       <!-- planar shear-supporting magnetic mate
            mating surface is along positive z-axis
              -->
         <symmetry>
-          <rot>1 1 1</rot>
+          <rot>1 1 4</rot>
         </symmetry>
 
-        <!-- dipole -->
-        <force>
-          <min>
-            <linear threshold="0.1" deadband="0.01"/>
-            <angular threshold="0.01" deadband="0.001"/>
-          </min>
-          <max>
-            <linear threshold="1.0" deadband="0.1"/>
-            <angular threshold="0.10" deadband="0.01"/>
-          </max>
-        </force>
-
+        <!-- single-magnet mate -->
         <xacro:if value="0">
           <dipole>
             <position>0.0 0.0 0</position>
@@ -311,6 +300,7 @@
           </dipole>
         </xacro:if>
 
+        <!-- four-magnet mate -->
         <xacro:if value="1">
           <dipole>
             <position>0.01 0.01 0</position>
@@ -339,11 +329,15 @@
 
         <!-- proximity -->
         <attach_threshold>
+          <!--<linear>0.0005</linear>-->
+          <!--<angular>0.05</angular>-->
           <linear>${linear_attach}</linear>
           <angular>${angular_attach}</angular>
         </attach_threshold>
 
         <detach_threshold>
+          <!--<linear>0.002</linear>-->
+          <!--<angular>0.02</angular>-->
           <linear>${linear_detach}</linear>
           <angular>${angular_detach}</angular>
         </detach_threshold>
@@ -353,7 +347,7 @@
           <parent>gbeam_link</parent>
           <child>gbeam_node</child>
           <axis>
-            <xyz>0 1 0</xyz>
+            <xyz>0 0 1</xyz>
             <limit>
               <lower>-0.0001</lower>
               <upper>0.0001</upper>
