@@ -291,32 +291,57 @@
           <rot>1 1 1</rot>
         </symmetry>
 
-        <xacro:if value="1">
-          <force>
-            <min>
-              <linear threshold="0.1" deadband="0.01"/>
-              <angular threshold="0.01" deadband="0.001"/>
-            </min>
-            <max>
-              <linear threshold="1.0" deadband="0.1"/>
-              <angular threshold="0.10" deadband="0.01"/>
-            </max>
-          </force>
-
-          <moment>0.1</moment>
-        </xacro:if>
+        <!-- dipole -->
+        <force>
+          <min>
+            <linear threshold="0.1" deadband="0.01"/>
+            <angular threshold="0.01" deadband="0.001"/>
+          </min>
+          <max>
+            <linear threshold="1.0" deadband="0.1"/>
+            <angular threshold="0.10" deadband="0.01"/>
+          </max>
+        </force>
 
         <xacro:if value="1">
-          <attach_threshold>
-            <linear>${linear_attach}</linear>
-            <angular>${angular_attach}</angular>
-          </attach_threshold>
-
-          <detach_threshold>
-            <linear>${linear_detach}</linear>
-            <angular>${angular_detach}</angular>
-          </detach_threshold>
+          <dipole>
+            <position>0.0 0.0 0</position>
+            <moment>0 0 0.3</moment>
+          </dipole>
         </xacro:if>
+
+        <xacro:if value="0">
+          <dipole>
+            <position>0.01 0 0</position>
+            <moment>0 0 0.08</moment>
+          </dipole>
+
+          <dipole>
+            <position>0.0 0.01 0</position>
+            <moment>0 0 0.08</moment>
+          </dipole>
+
+          <dipole>
+            <position>-0.01 0.0 0</position>
+            <moment>0 0 0.08</moment>
+          </dipole>
+
+          <dipole>
+            <position>0.0 -0.01 0</position>
+            <moment>0 0 0.08</moment>
+          </dipole>
+        </xacro:if>
+
+        <!-- proximity -->
+        <attach_threshold>
+          <linear>${linear_attach}</linear>
+          <angular>${angular_attach}</angular>
+        </attach_threshold>
+
+        <detach_threshold>
+          <linear>${linear_detach}</linear>
+          <angular>${angular_detach}</angular>
+        </detach_threshold>
 
         <joint type="prismatic" name="gbeam">
           <pose>0 0.028 0 0 ${pi/2} 0</pose>

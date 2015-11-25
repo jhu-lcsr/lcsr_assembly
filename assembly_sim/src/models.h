@@ -446,6 +446,13 @@ namespace assembly_sim {
     KDL::Vector last_F1, last_F2;
     KDL::Vector last_T1, last_T2;
 
+    struct Dipole {
+      KDL::Vector position;
+      KDL::Vector moment;
+    };
+
+    std::vector<Dipole> dipoles;
+
     DipoleMate(
         MateModelPtr mate_model,
         gazebo::physics::ModelPtr gazebo_model,
@@ -493,8 +500,29 @@ namespace assembly_sim {
       }
 
       // Get the dipole moments (along Z axis)
-      sdf::ElementPtr moment_elem = mate_elem->GetElement("moment");
-      moment_elem->GetValue()->Get(moment);
+      sdf::ElementPtr dipole_elem = mate_elem->GetElement("dipole");
+
+      while(dipole_elem && dipole_elem->GetName() == "dipole")
+      {
+        gazebo::math::Vector3 position_gz, moment_gz;
+
+        // Get the position of the dipole
+        sdf::ElementPtr position_elem = dipole_elem->GetElement("position");
+        position_elem->GetValue()->Get(position_gz);
+
+        // Get the magnetic moment
+        sdf::ElementPtr moment_elem = dipole_elem->GetElement("moment");
+        moment_elem->GetValue()->Get(moment_gz);
+
+        Dipole dipole;
+        dipole.position = KDL::Vector(position_gz.x, position_gz.y, position_gz.z);
+        dipole.moment = KDL::Vector(moment_gz.x, moment_gz.y, moment_gz.z);
+
+        dipoles.push_back(dipole);
+        
+        // Get the next dipole element
+        dipole_elem = dipole_elem->GetNextElement(dipole_elem->GetName());
+      }
     }
 
     virtual Mate::State getNewState()
@@ -526,65 +554,74 @@ namespace assembly_sim {
       gazebo::math::Pose male_mate_pose;
       to_gazebo(male_mate_frame, male_mate_pose);
 
-      // compute twist between the two mate points
-      KDL::Twist twist_err = diff(female_mate_frame, male_mate_frame);
+      for(std::vector<Dipole>::iterator it_fdp=dipoles.begin(); it_fdp!=dipoles.end(); ++it_fdp)
+      {
+        for(std::vector<Dipole>::iterator it_mdp=dipoles.begin(); it_mdp!=dipoles.end(); ++it_mdp)
+        {
+          KDL::Frame female_dipole_frame(female_mate_frame.M, female_mate_frame*it_fdp->position);
+          KDL::Frame male_dipole_frame(male_mate_frame.M, male_mate_frame*it_mdp->position);
 
-      // Compute dipole force
-      static const double mu0 = 4*M_PI*1E-7;
+          // compute twist between the two mate points
+          KDL::Twist twist_err = diff(female_dipole_frame, male_dipole_frame);
 
-      KDL::Vector r = twist_err.vel;
-      double rn = r.Norm();
-      if(rn > 0.02) {
-        KDL::SetToZero(last_F1);
-        KDL::SetToZero(last_F2);
-        KDL::SetToZero(last_T1);
-        KDL::SetToZero(last_T2);
-        return;
+          // Compute dipole force
+          static const double mu0 = 4*M_PI*1E-7;
+
+          KDL::Vector r = twist_err.vel;
+          double rn = r.Norm();
+          if(rn > 0.03) {
+            continue;
+            //KDL::SetToZero(last_F1);
+            //KDL::SetToZero(last_F2);
+            //KDL::SetToZero(last_T1);
+            //KDL::SetToZero(last_T2);
+          }
+
+          rn = std::max(0.005, rn);
+          r = rn / r.Norm() * r;
+
+          KDL::Vector rh = (rn > 1E-5) ? twist_err.vel/rn : KDL::Vector(1,0,0);
+
+          //double a = timestep.Double() / (0.0 + timestep.Double());
+
+          const KDL::Vector
+            m1 = female_dipole_frame.M * it_fdp->moment,
+               m2 = male_dipole_frame.M * it_mdp->moment,
+               B1 = mu0 / 4 / M_PI / pow(rn,3) * ( 3 * (KDL::dot(m1,rh)*rh - m1)),
+               B2 = mu0 / 4 / M_PI / pow(rn,3) * ( 3 * (KDL::dot(m2,rh)*rh - m2)),
+               F2r = 3 * mu0 / 4 / M_PI / pow(rn,4) * ( (rh*m2)*m1 + (rh*m1)*m2 - 2*rh*KDL::dot(m1,m2) + 5*rh*KDL::dot(rh*m2,rh*m1) ),
+               F1r = -F2r,
+               T1r = m1 * B2,
+               T2r = m2 * B1,
+               F1 = F1r /* a + (1.0 - a) * last_F1*/,
+               F2 = F2r /* a + (1.0 - a) * last_F2*/,
+               T1 = T1r /* a + (1.0 - a) * last_T1*/,
+               T2 = T2r /* a + (1.0 - a) * last_T2*/;
+
+          //last_F1 = F1;
+          //last_F2 = F2;
+          //last_T1 = T1;
+          //last_T2 = T2;
+
+          //gzwarn<<"Dipole force: "<<std::setprecision(4)<<std::fixed
+            //<<"female("<<female_atom->link->GetName()<<"#"<<female_mate_point->id<<") "<<[>female_mate_frame<<<]" --> "<<m1<<" F1="<<F1
+            //<<" - "
+            //<<"  male("<<male_atom->link->GetName()<<"#"<<male_mate_point->id<<") "<<[>male_mate_frame<<<]" --> "<<m2<<" F2="<<F2
+            //<<""<<std::endl;
+
+          // Apply force to links
+          gazebo::math::Vector3 F2gz(F2[0], F2[1], F2[2]);
+          gazebo::math::Vector3 F1gz(F1[0], F1[1], F1[2]);
+          gazebo::math::Vector3 T2gz(T2[0], T2[1], T2[2]);
+          gazebo::math::Vector3 T1gz(T1[0], T1[1], T1[2]);
+
+          female_atom->link->AddForceAtWorldPosition(F1gz, female_mate_pose.pos);
+          female_atom->link->AddTorque(female_atom->link->GetWorldPose().rot.GetInverse() * T1gz);
+
+          male_atom->link->AddForceAtWorldPosition(F2gz, male_mate_pose.pos);
+          male_atom->link->AddTorque(male_atom->link->GetWorldPose().rot.GetInverse() * T2gz);
+        }
       }
-
-      rn = std::max(0.005, rn);
-      r = rn / r.Norm() * r;
-
-      KDL::Vector rh = (rn > 1E-5) ? twist_err.vel/rn : KDL::Vector(1,0,0);
-
-      double a = timestep.Double() / (0.0 + timestep.Double());
-
-      const KDL::Vector
-        m1 = female_mate_frame.M * KDL::Vector(0,0,moment),
-           m2 = male_mate_frame.M * KDL::Vector(0,0,moment),
-           B1 = mu0 / 4 / M_PI / pow(rn,3) * ( 3 * (KDL::dot(m1,rh)*rh - m1)),
-           B2 = mu0 / 4 / M_PI / pow(rn,3) * ( 3 * (KDL::dot(m2,rh)*rh - m2)),
-           F2r = 3 * mu0 / 4 / M_PI / pow(rn,4) * ( (rh*m2)*m1 + (rh*m1)*m2 - 2*rh*KDL::dot(m1,m2) + 5*rh*KDL::dot(rh*m2,rh*m1) ),
-           F1r = -F2r,
-           T1r = m1 * B2,
-           T2r = m2 * B1,
-           F1 = a * F1r + (1.0 - a) * last_F1,
-           F2 = a * F2r + (1.0 - a) * last_F2,
-           T1 = a * T1r + (1.0 - a) * last_T1,
-           T2 = a * T2r + (1.0 - a) * last_T2;
-
-      last_F1 = F1;
-      last_F2 = F2;
-      last_T1 = T1;
-      last_T2 = T2;
-
-      gzdebug<<"Dipole force: "<<std::setprecision(4)<<std::fixed
-        <<"female("<<female_atom->link->GetName()<<"#"<<female_mate_point->id<<") "<</*female_mate_frame<<*/" --> "<<m1<<" F1="<<F1
-        <<" - "
-        <<"  male("<<male_atom->link->GetName()<<"#"<<male_mate_point->id<<") "<</*male_mate_frame<<*/" --> "<<m2<<" F2="<<F2
-        <<""<<std::endl;
-
-      // Apply force to links
-      gazebo::math::Vector3 F2gz(F2[0], F2[1], F2[2]);
-      gazebo::math::Vector3 F1gz(F1[0], F1[1], F1[2]);
-      gazebo::math::Vector3 T2gz(T2[0], T2[1], T2[2]);
-      gazebo::math::Vector3 T1gz(T1[0], T1[1], T1[2]);
-
-      female_atom->link->AddForceAtWorldPosition(F1gz, female_mate_pose.pos);
-      female_atom->link->AddTorque(T1gz);
-
-      male_atom->link->AddForceAtWorldPosition(F2gz, male_mate_pose.pos);
-      male_atom->link->AddTorque(T2gz);
     }
 
     virtual void setState(Mate::State pending_state)
