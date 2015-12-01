@@ -332,9 +332,10 @@ namespace assembly_sim
         mates_msg.male.push_back(mate->joint->GetChild()->GetName());
       }
 
+#if 1
       // Check if this mate is already scheduled to be updated
       if(mate->needsUpdate()) {
-        gzwarn<<"mate "<<mate->getDescription()<<" already scheduled."<<std::endl;
+        //gzwarn<<"mate "<<mate->getDescription()<<" already scheduled."<<std::endl;
         continue;
       }
 
@@ -343,9 +344,10 @@ namespace assembly_sim
 
       // Schedule mates to detach / attach etc
       if(mate->needsUpdate()) {
-        gzwarn<<"mate /"<<mate->getDescription()<<" needs to be updated"<<std::endl;
+        //gzwarn<<"mate /"<<mate->getDescription()<<" needs to be updated"<<std::endl;
         mate_update_queue_.push(mate);
       }
+#endif
 
       // Broadcast the TF frame for this joint
       // TODO: move this introspection out of this thread
@@ -545,7 +547,7 @@ namespace assembly_sim
     {
       boost::mutex::scoped_lock update_lock(update_mutex_, boost::try_to_lock);
       while(not mate_update_queue_.empty()) {
-        gzwarn<<"updating mate "<<mate_update_queue_.front()->getDescription()<<std::endl;
+        //gzwarn<<"updating mate "<<mate_update_queue_.front()->getDescription()<<std::endl;
         mate_update_queue_.front()->updateConstraints();
         mate_update_queue_.pop();
       }

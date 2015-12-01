@@ -247,6 +247,8 @@ namespace assembly_sim {
     std::vector<KDL::Frame>::iterator mated_symmetry;
     KDL::Twist mate_error;
 
+    Eigen::Vector3d max_force, max_torque;
+
     ProximityMateBase(
         MateModelPtr mate_model,
         gazebo::physics::ModelPtr gazebo_model,
@@ -255,7 +257,9 @@ namespace assembly_sim {
         AtomPtr female_atom,
         AtomPtr male_atom) :
       Mate(mate_model, gazebo_model, female_mate_point_, male_mate_point_, female_atom, male_atom),
-      mated_symmetry(mate_model->symmetries.end())
+      mated_symmetry(mate_model->symmetries.end()),
+      max_force(Eigen::Vector3d::Zero()),
+      max_torque(Eigen::Vector3d::Zero())
     {
       this->load_proximity_params();
     }
@@ -286,6 +290,18 @@ namespace assembly_sim {
         gzwarn<<(boost::format("Detach threshold linear: %f angular %f") % attach_threshold_linear % attach_threshold_angular)<<std::endl;
       } else {
         gzerr<<"No detach_threshold / linear / angular elements!"<<std::endl;
+      }
+
+      gazebo::math::Vector3 gz_max_force, gz_max_torque;
+      sdf::ElementPtr max_force_elem = mate_elem->GetElement("max_force");
+      if(max_force_elem) {
+        max_force_elem->GetValue()->Get(gz_max_force);
+        to_eigen(gz_max_force, max_force);
+      }
+      sdf::ElementPtr max_torque_elem = mate_elem->GetElement("max_torque");
+      if(max_torque_elem) {
+        max_torque_elem->GetValue()->Get(gz_max_torque);
+        to_eigen(gz_max_torque, max_torque);
       }
     }
 
@@ -340,7 +356,7 @@ namespace assembly_sim {
 
       //gzwarn<<" ---- initial anchor pose: "<<std::endl<<initial_anchor_frame<<std::endl;
       //gzwarn<<" ---- actual anchor pose: "<<std::endl<<actual_anchor_frame<<std::endl;
-      gzwarn<<" ---- mate error: "<<this->mate_error.vel.Norm()<<", "<<this->mate_error.rot.Norm()<<std::endl;
+      gzwarn<<">> mate error: "<<this->mate_error.vel.Norm()<<", "<<this->mate_error.rot.Norm()<<std::endl;
     }
 
     virtual void detach()
@@ -401,12 +417,20 @@ namespace assembly_sim {
 
         if(state == Mate::MATED and it_sym == mated_symmetry)
         {
+          gazebo::physics::JointWrench joint_wrench = joint->GetForceTorque(0);
+          Eigen::Vector3d force, torque;
+          to_eigen(joint_wrench.body1Force, force);
+          to_eigen(joint_wrench.body1Torque, torque);
+
+          //gzwarn<<">>> "<<this->getDescription()<<" Force: "<<force<<" Torque: "<<torque<<std::endl;
           // Determine if active mate needs to be detached
           if(twist_err.vel.Norm() > detach_threshold_linear or
-             twist_err.rot.Norm() > detach_threshold_angular)
+             twist_err.rot.Norm() > detach_threshold_angular or
+             ((max_force.array() > 0.0).any() and (force.array().abs() > max_force.array()).any()) or
+             ((max_torque.array() > 0.0).any() and (torque.array().abs() > max_torque.array()).any()))
           {
             // The mate points are beyond the detach threhold and should be demated
-            gzwarn<<"unmate "<<getDescription()<<std::endl;
+            gzwarn<<"> Request unmate "<<getDescription()<<std::endl;
             this->requestUpdate(Mate::UNMATED);
             break;
           } else if(
@@ -414,7 +438,7 @@ namespace assembly_sim {
               twist_err.rot.Norm() / mate_error.rot.Norm() < 0.8)
           {
             // Re-mate but closer to the desired point
-            gzwarn<<"remate "<<getDescription()<<std::endl;
+            gzwarn<<"> Request remate "<<getDescription()<<std::endl;
             this->mate_error = twist_err;
             this->requestUpdate(Mate::MATED);
             break;
@@ -425,7 +449,7 @@ namespace assembly_sim {
              twist_err.rot.Norm() < attach_threshold_angular)
           {
             // The mate points are within the attach threshold and should be mated
-            gzwarn<<"demate "<<getDescription()<<std::endl;
+            gzwarn<<"> Request mate "<<getDescription()<<std::endl;
             this->mated_symmetry = it_sym;
             this->mate_error = twist_err;
             this->requestUpdate(Mate::MATED);
@@ -437,13 +461,21 @@ namespace assembly_sim {
 
     virtual void updateConstraints()
     {
+      if(not this->needsUpdate()) {
+        this->queueUpdate();
+      }
+
+      if(not this->needsUpdate()) {
+        return;
+      }
+
       switch(this->getUpdate()) {
         case Mate::NONE:
           break;
 
         case Mate::UNMATED:
           if(state == Mate::MATED) {
-            gzwarn<<"Detaching "<<female->link->GetName()<<" from "<<male->link->GetName()<<"!"<<std::endl;
+            gzwarn<<"> Detaching "<<female->link->GetName()<<" from "<<male->link->GetName()<<"!"<<std::endl;
             this->detach();
             this->state = Mate::UNMATED;
             this->mated_symmetry = model->symmetries.end();
@@ -456,9 +488,9 @@ namespace assembly_sim {
 
         case Mate::MATED:
           if(state != Mate::MATED) {
-            gzwarn<<"Attaching "<<female->link->GetName()<<" to "<<male->link->GetName()<<"!"<<std::endl;
+            gzwarn<<"> Attaching "<<female->link->GetName()<<" to "<<male->link->GetName()<<"!"<<std::endl;
           } else {
-            gzwarn<<"Reattaching "<<female->link->GetName()<<" to "<<male->link->GetName()<<"!"<<std::endl;
+            gzwarn<<"> Reattaching "<<female->link->GetName()<<" to "<<male->link->GetName()<<"!"<<std::endl;
           }
           this->attach();
           this->state = Mate::MATED;
@@ -598,6 +630,8 @@ namespace assembly_sim {
       mate_error = diff(female_mate_frame, male_mate_frame);
       if(mate_error.vel.Norm() > 0.03) {
         return;
+      } else {
+        //gzwarn<<"mate "<<description<<" attracting"<<std::endl;
       }
 
       // compute and apply forces between all male/female pairs of dipoles
@@ -626,27 +660,37 @@ namespace assembly_sim {
 
           KDL::Vector rh = (rn > 1E-5) ? twist_err.vel/rn : KDL::Vector(1,0,0);
 
+          // Compute magnetic moments and fields
           KDL::Vector
             m1 = female_dipole_frame.M * it_fdp->moment,
-               m2 = male_dipole_frame.M * it_mdp->moment,
-               B1 = mu0 / 4 / M_PI / pow(rn,3) * ( 3 * (KDL::dot(m1,rh)*rh - m1)),
-               B2 = mu0 / 4 / M_PI / pow(rn,3) * ( 3 * (KDL::dot(m2,rh)*rh - m2)),
-               F2 = 3 * mu0 / 4 / M_PI / pow(rn,4) * ( (rh*m2)*m1 + (rh*m1)*m2 - 2*rh*KDL::dot(m1,m2) + 5*rh*KDL::dot(rh*m2,rh*m1) ),
-               F1 = -F2,
-               T1 = m1 * B2,
-               T2 = m2 * B1;
+            m2 = male_dipole_frame.M * it_mdp->moment,
+            B1 = mu0 / 4 / M_PI / pow(rn,3) * ( 3 * (KDL::dot(m1,rh)*rh - m1)),
+            B2 = mu0 / 4 / M_PI / pow(rn,3) * ( 3 * (KDL::dot(m2,rh)*rh - m2));
+
+          // Compute wrenches in the world frame applied at the dipole point
+          KDL::Wrench
+            W1(-3 * mu0 / 4 / M_PI / pow(rn,4) * ( (rh*m2)*m1 + (rh*m1)*m2 - 2*rh*KDL::dot(m1,m2) + 5*rh*KDL::dot(rh*m2,rh*m1) ), m1 * B2),
+            W2(-W1.force, m2 * B1);
+
+          // Convert to wrenches applied at centers of mass
+          KDL::Wrench
+            W1cog(W1),
+            W2cog(W2);
+
+          W1.force -= W1.torque * it_fdp->position / pow(it_fdp->position.Norm(),2.0);
+          W2.force -= W2.torque * it_mdp->position / pow(it_mdp->position.Norm(),2.0);
 
           //gzwarn<<"Dipole force: "<<std::setprecision(4)<<std::fixed
-            //<<"female("<<female_atom->link->GetName()<<"#"<<female_mate_point->id<<") "<<[>female_mate_frame<<<]" --> "<<m1<<" F1="<<F1
+            //<<"female("<<female_atom->link->GetName()<<"#"<<female_mate_point->id<<") "<<[>female_mate_frame<<<]" --> "<<m1<<" F1="<<W1.force
             //<<" - "
-            //<<"  male("<<male_atom->link->GetName()<<"#"<<male_mate_point->id<<") "<<[>male_mate_frame<<<]" --> "<<m2<<" F2="<<F2
+            //<<"  male("<<male_atom->link->GetName()<<"#"<<male_mate_point->id<<") "<<[>male_mate_frame<<<]" --> "<<m2<<" F2="<<W2.force
             //<<""<<std::endl;
 
           // Apply force to links
-          const gazebo::math::Vector3 F2gz(F2[0], F2[1], F2[2]);
-          const gazebo::math::Vector3 F1gz(F1[0], F1[1], F1[2]);
-          const gazebo::math::Vector3 T2gz(T2[0], T2[1], T2[2]);
-          const gazebo::math::Vector3 T1gz(T1[0], T1[1], T1[2]);
+          gazebo::math::Vector3 F1gz, F2gz, T1gz, T2gz;
+
+          to_gazebo(W1cog, F1gz, T1gz);
+          to_gazebo(W2cog, F2gz, T2gz);
 
           female_atom->link->AddForceAtWorldPosition(F1gz, female_dipole_pose.pos);
           female_atom->link->AddTorque(T1gz);

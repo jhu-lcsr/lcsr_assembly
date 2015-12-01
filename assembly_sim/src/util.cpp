@@ -61,6 +61,23 @@ namespace assembly_sim {
     frame.M.GetQuaternion(pose.rot.x, pose.rot.y, pose.rot.z, pose.rot.w);
   }
 
+  void to_gazebo(const KDL::Wrench &wrench, gazebo::math::Vector3 &force, gazebo::math::Vector3 &torque)
+  {
+    force.x = wrench.force.x();
+    force.y = wrench.force.y();
+    force.z = wrench.force.z();
+
+    torque.x = wrench.torque.x();
+    torque.y = wrench.torque.y();
+    torque.z = wrench.torque.z();
+  }
+
+  void to_eigen(const gazebo::math::Vector3 &vector3, Eigen::Vector3d &vector3d) {
+    for(int i=0; i<3; i++) {
+      vector3d[i] = vector3[i];
+    }
+  }
+
   // Complete an SDF xml snippet into a model
   std::string complete_sdf(const std::string &incomplete_sdf)
   {
