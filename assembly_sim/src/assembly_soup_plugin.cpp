@@ -389,8 +389,6 @@ namespace assembly_sim
           ++it_fa,++atom_id)
       {
 
-        ROS_INFO("size=%u, id=%u",male_mate_markers.markers.size(),atom_id);
-
         AtomPtr female_atom = *it_fa;
         //gzwarn<<"broadcasting tf/marker info"<<std::endl;
 
