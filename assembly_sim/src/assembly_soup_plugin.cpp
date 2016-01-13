@@ -380,10 +380,17 @@ namespace assembly_sim
     // TODO: move this introspection out of this thread
     if(broadcast_tf_)
     {
+      visualization_msgs::MarkerArray male_mate_markers;
+      visualization_msgs::MarkerArray female_mate_markers;
+
+      unsigned int atom_id = 0;
       for(std::vector<AtomPtr>::iterator it_fa = atoms_.begin();
           it_fa != atoms_.end();
-          ++it_fa)
+          ++it_fa,++atom_id)
       {
+
+        ROS_INFO("size=%u, id=%u",male_mate_markers.markers.size(),atom_id);
+
         AtomPtr female_atom = *it_fa;
         //gzwarn<<"broadcasting tf/marker info"<<std::endl;
 
@@ -401,8 +408,6 @@ namespace assembly_sim
             % female_atom->model->type);
 
         tf::Transform tf_frame;
-        visualization_msgs::MarkerArray male_mate_markers;
-        visualization_msgs::MarkerArray female_mate_markers;
 
         // Broadcast a tf frame for this link
         to_tf(female_atom->link->GetWorldPose(), tf_frame);
@@ -438,7 +443,7 @@ namespace assembly_sim
           mate_marker.header.stamp = ros::Time(0);
           mate_marker.type = mate_marker.CUBE;
           mate_marker.action = mate_marker.ADD;
-          mate_marker.id = (iter * 100) + male_mate_point->id;
+          mate_marker.id = (atom_id * 10000) + (iter * 100) + male_mate_point->id;
           mate_marker.scale.x = 0.02;
           mate_marker.scale.y = 0.02;
           mate_marker.scale.z = 0.01;
@@ -474,7 +479,7 @@ namespace assembly_sim
           mate_marker.header.stamp = ros::Time(0);
           mate_marker.type = mate_marker.CUBE;
           mate_marker.action = mate_marker.ADD;
-          mate_marker.id = (iter * 100) + female_mate_point->id;
+          mate_marker.id = (atom_id * 10000) + (iter * 100) + female_mate_point->id;
           mate_marker.scale.x = 0.02;
           mate_marker.scale.y = 0.02;
           mate_marker.scale.z = 0.01;
@@ -485,9 +490,10 @@ namespace assembly_sim
           female_mate_markers.markers.push_back(mate_marker);
         }
 
-        male_mate_pub_.publish(male_mate_markers);
-        female_mate_pub_.publish(female_mate_markers);
       }
+
+      male_mate_pub_.publish(male_mate_markers);
+      female_mate_pub_.publish(female_mate_markers);
     }
 
     // TODO: move this introspection out of this thread
