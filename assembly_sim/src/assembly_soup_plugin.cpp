@@ -17,7 +17,9 @@
 #include <visualization_msgs/MarkerArray.h>
 
 // send information to ros
+#include <assembly_msgs/Mate.h>
 #include <assembly_msgs/MateList.h>
+#include <assembly_msgs/MatingList.h>
 
 #include <kdl/frames_io.hpp>
 
@@ -61,6 +63,8 @@ namespace assembly_sim
       ros::NodeHandle nh;
       male_mate_pub_ = nh.advertise<visualization_msgs::MarkerArray>("male_mate_points",1000);
       female_mate_pub_ = nh.advertise<visualization_msgs::MarkerArray>("female_mate_points",1000);
+      wrenches_pub_ = nh.advertise<visualization_msgs::MarkerArray>("mate_wrenches",100);
+      mate_details_pub_ = nh.advertise<visualization_msgs::MarkerArray>("mate_details",100);
     }
 
     // are we going to publish ros messages describing mate status?
@@ -70,6 +74,7 @@ namespace assembly_sim
       if (publish_active_mates_) {
         ros::NodeHandle nh;
         active_mates_pub_ = nh.advertise<assembly_msgs::MateList>("active_mates",1000);
+        mating_pub_ = nh.advertise<assembly_msgs::MatingList>("mating_mates",1000);
         gzwarn << "Publishing active mates!" << std::endl;
       } else {
         gzwarn << "Not publishing active mates!" << std::endl;
@@ -314,6 +319,7 @@ namespace assembly_sim
     static tf::TransformBroadcaster br;
 
     assembly_msgs::MateList mates_msg;
+    assembly_msgs::MatingList mating_msg;
 
     // Synchronize with main update thread
     boost::mutex::scoped_lock update_lock(update_mutex_);
@@ -327,9 +333,18 @@ namespace assembly_sim
     {
       MatePtr mate = *it;
 
+      assembly_msgs::Mate mate_msg;
+      mate_msg.description = mate->getDescription();
+      mate_msg.linear_error = mate->mate_point_error.vel.Norm();
+      mate_msg.angular_error =mate->mate_point_error.rot.Norm();
+
       if(publish_active_mates_ and mate->state == Mate::MATED) {
         mates_msg.female.push_back(mate->joint->GetParent()->GetName());
         mates_msg.male.push_back(mate->joint->GetChild()->GetName());
+        mates_msg.linear_error.push_back(mate_msg.linear_error);
+        mates_msg.angular_error.push_back(mate_msg.angular_error);
+      } else if(publish_active_mates_ and mate_msg.linear_error < 0.03 and mate_msg.linear_error > 0.0) {
+        mating_msg.mates.push_back(mate_msg);
       }
 
 #if 1
@@ -382,19 +397,51 @@ namespace assembly_sim
     {
       visualization_msgs::MarkerArray male_mate_markers;
       visualization_msgs::MarkerArray female_mate_markers;
+      visualization_msgs::MarkerArray wrench_markers;
+      visualization_msgs::MarkerArray mate_details_markers;
 
       unsigned int atom_id = 0;
       for(std::vector<AtomPtr>::iterator it_fa = atoms_.begin();
           it_fa != atoms_.end();
           ++it_fa,++atom_id)
       {
-
         AtomPtr female_atom = *it_fa;
         //gzwarn<<"broadcasting tf/marker info"<<std::endl;
-
+        
         // Get the female atom frame
         KDL::Frame female_atom_frame;
         to_kdl(female_atom->link->GetWorldPose(), female_atom_frame);
+
+        for (boost::unordered_set<MatePtr>::iterator it = mates_.begin();
+             it != mates_.end();
+             ++it)
+        {
+          MatePtr mate = *it;
+          mate->getMarkers(mate_details_markers);
+        }
+
+        // Construct wrench arrow marker
+        visualization_msgs::Marker wrench_marker;
+        wrench_marker.ns = "wrenches";
+        wrench_marker.id = atom_id;
+        wrench_marker.header.frame_id = "/world";
+        wrench_marker.header.stamp = ros::Time::now();
+        wrench_marker.type = visualization_msgs::Marker::ARROW;
+        wrench_marker.scale.x = 0.005;
+        wrench_marker.scale.y = 0.01;
+        wrench_marker.scale.z = 0.01;
+        wrench_marker.color.a = 0.5;
+        wrench_marker.color.r = 1.0;
+        geometry_msgs::Point p0, p1;
+        p0.x = female_atom_frame.p.x();
+        p0.y = female_atom_frame.p.y();
+        p0.z = female_atom_frame.p.z();
+        p1.x = female_atom_frame.p.x() + female_atom->wrench.force.x();
+        p1.y = female_atom_frame.p.y() + female_atom->wrench.force.y();
+        p1.z = female_atom_frame.p.z() + female_atom->wrench.force.z();
+        wrench_marker.points.push_back(p0);
+        wrench_marker.points.push_back(p1);
+        wrench_markers.markers.push_back(wrench_marker);
 
         // Construct some names for use with TF
         const std::string atom_name = boost::str(
@@ -492,11 +539,14 @@ namespace assembly_sim
 
       male_mate_pub_.publish(male_mate_markers);
       female_mate_pub_.publish(female_mate_markers);
+      wrenches_pub_.publish(wrench_markers);
+      mate_details_pub_.publish(mate_details_markers);
     }
 
     // TODO: move this introspection out of this thread
     if (publish_active_mates_) {
       active_mates_pub_.publish(mates_msg);
+      mating_pub_.publish(mating_msg);
     }
 
   }
@@ -557,10 +607,20 @@ namespace assembly_sim
       }
     }
 
-    // Compute
-    gazebo::common::Time timestep = _info.simTime - last_update_time_;
+    // Reset forces on all atoms
+    for(std::vector<AtomPtr>::iterator it_a = atoms_.begin();
+        it_a != atoms_.end();
+        ++it_a)
+    {
+      AtomPtr atom = *it_a;
+      atom->wrench = KDL::Wrench::Zero();
+    }
 
+    // Get the timestep and time
+    gazebo::common::Time timestep = _info.simTime - last_update_time_;
     gazebo::common::Time now = gazebo::common::Time::GetWallTime();
+ 
+    // Compute forces on all atoms
     for (boost::unordered_set<MatePtr>::iterator it = mates_.begin();
          it != mates_.end();
          ++it)

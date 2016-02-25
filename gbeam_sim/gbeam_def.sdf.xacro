@@ -81,7 +81,7 @@
           <surface>
             <friction>
               <ode>
-                <mu>0.7</mu>
+                <mu>0.2</mu>
                 <!--<mu2>0.7</mu2>-->
               </ode>
             </friction>
@@ -218,7 +218,7 @@
         <surface>
           <friction>
             <ode>
-              <mu>0.5</mu>
+              <mu>0.2</mu>
               <!--<mu2>0.5</mu2>-->
             </ode>
           </friction>
@@ -282,7 +282,7 @@
   </xacro:macro>
 
   <!-- GBeam mates -->
-  <xacro:macro name="gbeam_mate" params="linear_attach angular_attach linear_detach angular_detach">
+  <xacro:macro name="gbeam_mate">
     <mate_model type="gbeam" model="dipole">
       <!-- planar shear-supporting magnetic mate
            mating surface is along positive z-axis
@@ -302,8 +302,9 @@
 
         <!-- four-magnet mate -->
         <xacro:if value="1">
-          <max_force>50.0 50.0 10.0</max_force>
-          <max_torque>0.5 0.5 5.0</max_torque>
+          <max_force>70.0 70.0 15.0</max_force>
+          <max_torque>1.5 1.5 9.0</max_torque>
+          <max_distance>0.03</max_distance>
 
           <dipole>
             <position>0.01 0.01 0</position>
@@ -312,7 +313,7 @@
           </dipole>
 
           <dipole>
-            <position>-0.1 0.01 0</position>
+            <position>-0.01 0.01 0</position>
             <moment>0 0 0.02</moment>
             <min_distance>0.003</min_distance>
           </dipole>
@@ -332,33 +333,31 @@
 
         <!-- proximity -->
         <attach_threshold>
-          <linear>0.0005</linear>
+          <linear>0.005</linear>
           <angular>0.05</angular>
-          <!--<linear>${linear_attach}</linear>-->
-          <!--<angular>${angular_attach}</angular>-->
         </attach_threshold>
 
         <detach_threshold>
-          <linear>0.005</linear>
-          <angular>0.05</angular>
-          <!--<linear>${linear_detach}</linear>-->
-          <!--<angular>${angular_detach}</angular>-->
+          <linear>0.015</linear>
+          <angular>0.15</angular>
         </detach_threshold>
 
-        <joint type="prismatic" name="gbeam">
+        <joint type="fixed" name="gbeam">
           <pose>0 0.028 0 0 ${pi/2} 0</pose>
           <parent>gbeam_link</parent>
           <child>gbeam_node</child>
-          <axis>
-            <xyz>0 0 1</xyz>
-            <limit>
-              <lower>-0.0001</lower>
-              <upper>0.0001</upper>
-            </limit>
-            <dynamics>
-              <damping>0.1</damping>
-            </dynamics>
-          </axis>
+          <xacro:if value="0">
+            <axis>
+              <xyz>0 0 1</xyz>
+              <limit>
+                <lower>-0.0001</lower>
+                <upper>0.0001</upper>
+              </limit>
+              <dynamics>
+                <damping>0.1</damping>
+              </dynamics>
+            </axis>
+          </xacro:if>
           <physics>
             <provide_feedback>true</provide_feedback>
             <ode>

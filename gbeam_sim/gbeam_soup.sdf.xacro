@@ -10,11 +10,7 @@
       <publish_active_mates>1</publish_active_mates>
 
       <!-- Mate Models -->
-      <xacro:gbeam_mate
-        linear_attach="0.025"
-        linear_detach="0.030"
-        angular_attach="0.15"
-        angular_detach="0.20"/>
+      <xacro:gbeam_mate/>
 
       <!-- Atom Models -->
       <xacro:gbeam_link_atom/>

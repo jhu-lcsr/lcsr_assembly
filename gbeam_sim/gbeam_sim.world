@@ -15,5 +15,6 @@
     <physics type="ode">
       <gravity>0 0 0</gravity>
     </physics>
+  </world>
 </sdf>
 

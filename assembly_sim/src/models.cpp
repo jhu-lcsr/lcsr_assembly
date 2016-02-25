@@ -20,7 +20,8 @@ namespace assembly_sim {
     joint_sdf(),
     joint(),
     gazebo_model(gazebo_model_),
-    anchor_offset(KDL::Frame::Identity())
+    anchor_offset(KDL::Frame::Identity()),
+    mate_point_error(KDL::Vector(0,0,0),KDL::Vector(0,0,0))
   {
     // Make sure male and female mate points have the same model
     assert(female_mate_point->model == male_mate_point->model);
@@ -78,7 +79,7 @@ namespace assembly_sim {
     joint->Detach();
 
     // Get the stop stiffness
-    max_erp = joint->GetAttribute("erp",0);
-    max_stop_erp = joint->GetAttribute("stop_erp",0);
+    max_erp = joint->GetParam("erp",0);
+    max_stop_erp = joint->GetParam("stop_erp",0);
   }
 }

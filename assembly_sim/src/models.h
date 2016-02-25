@@ -1,6 +1,9 @@
 #ifndef __LCSR_ASSEMBLY_ASSEMBLY_SIM_MODELS_H__
 #define __LCSR_ASSEMBLY_ASSEMBLY_SIM_MODELS_H__
 
+#include <vector>
+#include <iterator>
+
 #include "util.h"
 
 namespace assembly_sim {
@@ -177,6 +180,8 @@ namespace assembly_sim {
       return description;
     }
 
+    virtual void getMarkers(visualization_msgs::MarkerArray &marker_array) {}
+
     // Mate model (same as mate points)
     MateModelPtr model;
 
@@ -197,6 +202,11 @@ namespace assembly_sim {
     // Mate points
     MatePointPtr female_mate_point;
     MatePointPtr male_mate_point;
+
+    // Mate error from female to male (including symmetries)
+    KDL::Twist mate_error;
+    // Mate point error
+    KDL::Twist mate_point_error;
 
     // Max erp
     double max_stop_erp;
@@ -231,6 +241,7 @@ namespace assembly_sim {
 
     // The link on the assembly model
     gazebo::physics::LinkPtr link;
+    KDL::Wrench wrench;
   };
 
   // A mate
@@ -245,7 +256,6 @@ namespace assembly_sim {
     double detach_threshold_angular;
 
     std::vector<KDL::Frame>::iterator mated_symmetry;
-    KDL::Twist mate_error;
 
     Eigen::Vector3d max_force, max_torque;
 
@@ -307,12 +317,31 @@ namespace assembly_sim {
 
     virtual void attach()
     {
+      // detach the atoms if they're already attached (they're going to be re-attached)
+      this->detach();
+
+      // move one of the atoms into the precise relative position
+      KDL::Frame new_frame;
+      gazebo::math::Pose new_pose;
+      if(this->male->link->IsStatic()) {
+        // Move female link
+        to_kdl(this->female->link->GetWorldPose(), new_frame);
+        new_frame.Integrate(this->mate_error, 1.0);
+        this->female->link->SetWorldPose(new_pose);
+        to_gazebo(new_frame, new_pose);
+      } else if(this->female->link->IsStatic()) {
+        // Move male link
+        to_kdl(this->male->link->GetWorldPose(), new_frame);
+        new_frame.Integrate(-this->mate_error, 1.0);
+        to_gazebo(new_frame, new_pose);
+        this->male->link->SetWorldPose(new_pose);
+      } else {
+        gzerr<<"How are you mating two static links?"<<std::endl;
+      }
+
       // Get the male atom frame
       KDL::Frame male_atom_frame;
       to_kdl(this->male->link->GetWorldPose(), male_atom_frame);
-
-      // detach the atoms if they're already attached (they're going to be re-attached)
-      this->detach();
 
       // attach two atoms via joint
       this->joint->Attach(this->female->link, this->male->link);
@@ -474,16 +503,13 @@ namespace assembly_sim {
           break;
 
         case Mate::UNMATED:
+        case Mate::MATING:
           if(state == Mate::MATED) {
             gzwarn<<"> Detaching "<<female->link->GetName()<<" from "<<male->link->GetName()<<"!"<<std::endl;
             this->detach();
             this->state = Mate::UNMATED;
             this->mated_symmetry = model->symmetries.end();
           }
-          break;
-
-        case Mate::MATING:
-          gzwarn<<"ProximityMate does not support Mate::MATING"<<std::endl;
           break;
 
         case Mate::MATED:
@@ -508,11 +534,6 @@ namespace assembly_sim {
 
   struct DipoleMate : public ProximityMate
   {
-    //TODO: Remove these, unused
-    double min_force_linear, min_force_angular, min_force_linear_deadband, min_force_angular_deadband;
-    double max_force_linear, max_force_angular, max_force_linear_deadband, max_force_angular_deadband;
-    double moment;
-
     // Individual magnetic dipole parameters
     struct Dipole {
       double min_distance;
@@ -535,35 +556,27 @@ namespace assembly_sim {
       this->load();
     }
 
+    double max_distance;
+    std::vector<visualization_msgs::Marker> female_moment_markers;
+    std::vector<visualization_msgs::Marker> male_moment_markers;
+
+    virtual void getMarkers(visualization_msgs::MarkerArray &marker_array)
+    {
+      // Only add moment markers if this mate is activated
+      if(state == Mate::MATED or mate_point_error.vel.Norm() > max_distance) {
+        return;
+      }
+      std::copy(female_moment_markers.begin(), female_moment_markers.end(), std::back_inserter(marker_array.markers));
+      std::copy(male_moment_markers.begin(), male_moment_markers.end(), std::back_inserter(marker_array.markers));
+    }
+
     virtual void load()
     {
       sdf::ElementPtr mate_elem = model->mate_elem;
 
-      // Get force attach/detach thresholds
-      sdf::ElementPtr force_elem = mate_elem->GetElement("force");
-      if(force_elem and force_elem->HasElement("min") and force_elem->HasElement("max")) {
-
-        sdf::ElementPtr min_elem = force_elem->GetElement("min");
-        sdf::ElementPtr max_elem = force_elem->GetElement("max");
-
-        sdf::ElementPtr min_linear_elem = min_elem->GetElement("linear");
-        sdf::ElementPtr min_angular_elem = min_elem->GetElement("angular");
-
-        sdf::ElementPtr max_linear_elem = max_elem->GetElement("linear");
-        sdf::ElementPtr max_angular_elem = max_elem->GetElement("angular");
-
-        min_linear_elem->GetAttribute("threshold")->Get(min_force_linear);
-        max_linear_elem->GetAttribute("threshold")->Get(max_force_linear);
-        min_angular_elem->GetAttribute("threshold")->Get(min_force_angular);
-        max_angular_elem->GetAttribute("threshold")->Get(max_force_angular);
-
-        min_linear_elem->GetAttribute("deadband")->Get(min_force_linear_deadband);
-        max_linear_elem->GetAttribute("deadband")->Get(max_force_linear_deadband);
-        min_angular_elem->GetAttribute("deadband")->Get(min_force_angular_deadband);
-        max_angular_elem->GetAttribute("deadband")->Get(max_force_angular_deadband);
-      } else {
-        gzerr<<"No force threshold elements!"<<std::endl;
-      }
+      // Get maximum distance
+      sdf::ElementPtr max_dist_elem = mate_elem->GetElement("max_distance");
+      max_dist_elem->GetValue()->Get(max_distance);
 
       // Get the dipole moments (along Z axis)
       sdf::ElementPtr dipole_elem = mate_elem->GetElement("dipole");
@@ -591,6 +604,27 @@ namespace assembly_sim {
         dipole.min_distance = min_distance;
 
         dipoles.push_back(dipole);
+
+        // Add marker
+        visualization_msgs::Marker m;
+        m.ns = description+"/female";
+        m.id = female_moment_markers.size();
+        m.header.frame_id = "/world";
+        m.header.stamp = ros::Time::now();
+        m.type = visualization_msgs::Marker::ARROW;
+        m.scale.x = 0.005;
+        m.scale.y = 0.01;
+        m.scale.z = 0.01;
+        m.color.a = 0.5;
+        m.color.g = 1.0;
+        geometry_msgs::Point p0, p1;
+        m.points.push_back(p0);
+        m.points.push_back(p1);
+        female_moment_markers.push_back(m);
+        m.ns = description+"/male";
+        m.color.b = 1.0;
+        m.color.g = 0.0;
+        male_moment_markers.push_back(m);
 
         // Get the next dipole element
         dipole_elem = dipole_elem->GetNextElement(dipole_elem->GetName());
@@ -627,76 +661,124 @@ namespace assembly_sim {
       to_gazebo(male_mate_frame, male_mate_pose);
 
       // compute twist between the two mate points to determine if we need to simulate dipole interactions
-      mate_error = diff(female_mate_frame, male_mate_frame);
-      if(mate_error.vel.Norm() > 0.03) {
+      mate_point_error = diff(female_mate_frame, male_mate_frame);
+      if(mate_point_error.vel.Norm() > max_distance) {
         return;
       } else {
-        //gzwarn<<"mate "<<description<<" attracting"<<std::endl;
+        //gzwarn<<"mate "<<description<<" attracting at "<<mate_point_error.vel<<"meters"<<std::endl;
       }
+
+      // Working variables
+      KDL::Vector r;
+      KDL::Vector rh;
+      KDL::Frame female_dipole_frame, male_dipole_frame;
+      KDL::Twist twist_err;
+      KDL::Vector m1, m2;
+      KDL::Vector B1, B2;
+      KDL::Wrench W1, W2;
+      gazebo::math::Vector3 F1gz, F2gz, T1gz, T2gz;
+
+      // update markers
+      int marker_id = 0;
+      for(std::vector<Dipole>::iterator it_fdp=dipoles.begin(); it_fdp!=dipoles.end(); ++it_fdp)
+      {
+        female_dipole_frame.p = female_mate_frame*it_fdp->position;
+        female_dipole_frame.M = female_mate_frame.M;
+        m1 = female_dipole_frame.M * it_fdp->moment;
+        visualization_msgs::Marker &m = female_moment_markers[marker_id];
+        m.points[0].x = female_dipole_frame.p.x();
+        m.points[0].y = female_dipole_frame.p.y();
+        m.points[0].z = female_dipole_frame.p.z();
+        m.points[1].x = female_dipole_frame.p.x() + m1.x();
+        m.points[1].y = female_dipole_frame.p.y() + m1.y();
+        m.points[1].z = female_dipole_frame.p.z() + m1.z();
+        marker_id++;
+      }
+      marker_id = 0;
+      for(std::vector<Dipole>::iterator it_mdp=dipoles.begin(); it_mdp!=dipoles.end(); ++it_mdp)
+      {
+        male_dipole_frame.p = male_mate_frame*it_mdp->position;
+        male_dipole_frame.M = male_mate_frame.M;
+        m2 = male_dipole_frame.M * it_mdp->moment;
+        visualization_msgs::Marker &m = male_moment_markers[marker_id];
+        m.points[0].x = male_dipole_frame.p.x();
+        m.points[0].y = male_dipole_frame.p.y();
+        m.points[0].z = male_dipole_frame.p.z();
+        m.points[1].x = male_dipole_frame.p.x() + m1.x();
+        m.points[1].y = male_dipole_frame.p.y() + m1.y();
+        m.points[1].z = male_dipole_frame.p.z() + m1.z();
+        marker_id++;
+      }
+
+      // Compute dipole force
+      static const double mu0 = 4*M_PI*1E-7;
 
       // compute and apply forces between all male/female pairs of dipoles
       for(std::vector<Dipole>::iterator it_fdp=dipoles.begin(); it_fdp!=dipoles.end(); ++it_fdp)
       {
+        // Compute the moment orientation and position
+        female_dipole_frame.M = female_mate_frame.M;
+        female_dipole_frame.p = female_mate_frame*it_fdp->position;
+        gazebo::math::Pose female_dipole_pose;
+        to_gazebo(female_dipole_frame, female_dipole_pose);
+        m1 = female_dipole_frame.M * it_fdp->moment;
+
         for(std::vector<Dipole>::iterator it_mdp=dipoles.begin(); it_mdp!=dipoles.end(); ++it_mdp)
         {
-          KDL::Frame female_dipole_frame(female_mate_frame.M, female_mate_frame*it_fdp->position);
-          KDL::Frame male_dipole_frame(male_mate_frame.M, male_mate_frame*it_mdp->position);
-
-          gazebo::math::Pose female_dipole_pose;
-          to_gazebo(female_dipole_frame, female_dipole_pose);
+          // Compute the moment orientation and position
+          male_dipole_frame.M = male_mate_frame.M;
+          male_dipole_frame.p = male_mate_frame*it_mdp->position;
           gazebo::math::Pose male_dipole_pose;
           to_gazebo(male_dipole_frame, male_dipole_pose);
+          m2 = male_dipole_frame.M * it_mdp->moment;
 
           // compute twist between the two mate points
-          KDL::Twist twist_err = diff(female_dipole_frame, male_dipole_frame);
+          twist_err = diff(female_dipole_frame, male_dipole_frame);
 
-          // Compute dipole force
-          static const double mu0 = 4*M_PI*1E-7;
-
-          KDL::Vector r = twist_err.vel;
+          r = twist_err.vel;
           double rn = r.Norm();
           rn = std::max(it_fdp->min_distance, rn);
           r = rn / r.Norm() * r;
 
-          KDL::Vector rh = (rn > 1E-5) ? twist_err.vel/rn : KDL::Vector(1,0,0);
+          // Compute normalized distance
+          rh = (rn > 1E-5) ? twist_err.vel/rn : KDL::Vector(1,0,0);
 
-          // Compute magnetic moments and fields
-          KDL::Vector
-            m1 = female_dipole_frame.M * it_fdp->moment,
-            m2 = male_dipole_frame.M * it_mdp->moment,
-            B1 = mu0 / 4 / M_PI / pow(rn,3) * ( 3 * (KDL::dot(m1,rh)*rh - m1)),
-            B2 = mu0 / 4 / M_PI / pow(rn,3) * ( 3 * (KDL::dot(m2,rh)*rh - m2));
+          // Compute magnetic fields
+          B1 = mu0 / 4 / M_PI / pow(rn,3) * ( 3 * (KDL::dot(m1,rh)*rh - m1));
+          B2 = mu0 / 4 / M_PI / pow(rn,3) * ( 3 * (KDL::dot(m2,rh)*rh - m2));
 
           // Compute wrenches in the world frame applied at the dipole point
-          KDL::Wrench
-            W1(-3 * mu0 / 4 / M_PI / pow(rn,4) * ( (rh*m2)*m1 + (rh*m1)*m2 - 2*rh*KDL::dot(m1,m2) + 5*rh*KDL::dot(rh*m2,rh*m1) ), m1 * B2),
-            W2(-W1.force, m2 * B1);
+          W1.force = -3 * mu0 / 4 / M_PI / pow(rn,4) * ( (rh*m2)*m1 + (rh*m1)*m2 - 2*rh*KDL::dot(m1,m2) + 5*rh*KDL::dot(rh*m2,rh*m1) );
+          W2.force = -W1.force;
+          W1.torque = m1 * B2;
+          W2.torque = m2 * B1;
 
+          //mate_point_error.vel = W1.force;
+          //mate_point_error.rot = W1.torque;
+#if 0
           // Convert to wrenches applied at centers of mass
-          KDL::Wrench
-            W1cog(W1),
-            W2cog(W2);
-
-          W1.force -= W1.torque * it_fdp->position / pow(it_fdp->position.Norm(),2.0);
-          W2.force -= W2.torque * it_mdp->position / pow(it_mdp->position.Norm(),2.0);
-
-          //gzwarn<<"Dipole force: "<<std::setprecision(4)<<std::fixed
-            //<<"female("<<female_atom->link->GetName()<<"#"<<female_mate_point->id<<") "<<[>female_mate_frame<<<]" --> "<<m1<<" F1="<<W1.force
-            //<<" - "
-            //<<"  male("<<male_atom->link->GetName()<<"#"<<male_mate_point->id<<") "<<[>male_mate_frame<<<]" --> "<<m2<<" F2="<<W2.force
-            //<<""<<std::endl;
-
+          KDL::Wrench W1cog(W1), W2cog(W2);
+          W1cog.force -= W1.torque * it_fdp->position / pow(it_fdp->position.Norm(),2.0);
+          W2cog.force -= W2.torque * it_mdp->position / pow(it_mdp->position.Norm(),2.0);
+#endif
+#if 0
+          gzwarn<<"Dipole force: "<<std::setprecision(4)<<std::fixed
+            <<"female("<<female_atom->link->GetName()<<"#"<<female_mate_point->id<<") "<<female_mate_frame<<" --> "<<m1<<" F1="<<W1.force
+            <<" - "
+            <<"male("<<male_atom->link->GetName()<<"#"<<male_mate_point->id<<") "<<male_mate_frame<<" --> "<<m2<<" F2="<<W2.force
+            <<""<<std::endl;
+#endif
           // Apply force to links
-          gazebo::math::Vector3 F1gz, F2gz, T1gz, T2gz;
-
-          to_gazebo(W1cog, F1gz, T1gz);
-          to_gazebo(W2cog, F2gz, T2gz);
+          to_gazebo(W1, F1gz, T1gz);
+          to_gazebo(W2, F2gz, T2gz);
 
           female_atom->link->AddForceAtWorldPosition(F1gz, female_dipole_pose.pos);
           female_atom->link->AddTorque(T1gz);
+          female_atom->wrench += W1;
 
           male_atom->link->AddForceAtWorldPosition(F2gz, male_dipole_pose.pos);
           male_atom->link->AddTorque(T2gz);
+          male_atom->wrench += W2;
         }
       }
     }

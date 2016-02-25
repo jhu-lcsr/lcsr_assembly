@@ -40,10 +40,13 @@ namespace assembly_sim {
 
       ros::Publisher male_mate_pub_;
       ros::Publisher female_mate_pub_;
+      ros::Publisher wrenches_pub_;
+      ros::Publisher mate_details_pub_;
 
       // for broadcasting lists of mates
       bool publish_active_mates_;
       ros::Publisher active_mates_pub_;
+      ros::Publisher mating_pub_;
 
       // used to synchronize main update thread with check thread
       boost::mutex update_mutex_;
