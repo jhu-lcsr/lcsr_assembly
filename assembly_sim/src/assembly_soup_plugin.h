@@ -2,6 +2,7 @@
 #define __ASSEMBLY_SIM_ASSEMBLY_SOUP_PLUGIN_H
 
 #include <queue>
+#include <map>
 
 #include <ros/ros.h>
 

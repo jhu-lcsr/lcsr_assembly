@@ -364,6 +364,7 @@ namespace assembly_sim
       }
 #endif
 
+#if 0
       // Broadcast the TF frame for this joint
       // TODO: move this introspection out of this thread
       if (broadcast_tf_ and mate->joint->GetParent() and mate->joint->GetChild())
@@ -389,9 +390,10 @@ namespace assembly_sim
                 tf_world_frame_,
                 mate->joint->GetName()));
       }
+#endif
     }
 
-    // Broadcast TF frames for this link
+    // Broadcast TF frames for this mate
     // TODO: move this introspection out of this thread
     if(broadcast_tf_)
     {

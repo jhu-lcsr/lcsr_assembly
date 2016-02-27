@@ -20,7 +20,6 @@ namespace assembly_sim {
     joint_sdf(),
     joint(),
     gazebo_model(gazebo_model_),
-    anchor_offset(KDL::Frame::Identity()),
     mate_point_error(KDL::Vector(0,0,0),KDL::Vector(0,0,0))
   {
     // Make sure male and female mate points have the same model
@@ -82,4 +81,55 @@ namespace assembly_sim {
     max_erp = joint->GetParam("erp",0);
     max_stop_erp = joint->GetParam("stop_erp",0);
   }
+
+  void GetConnectedLinks(
+      gazebo::physics::LinkPtr root_link,
+      boost::unordered_set<gazebo::physics::LinkPtr> &connected_component,
+      bool &connected_component_is_static)
+  {
+    std::queue<gazebo::physics::LinkPtr> links_to_check;
+    boost::unordered_set<gazebo::physics::LinkPtr> checked_links;
+
+    links_to_check.push(root_link);
+
+    gzwarn<<"computing component for: "<<root_link->GetName()<<std::endl;
+
+    while(links_to_check.size() > 0) {
+      // Get a link from the queue and add it to the component
+      gazebo::physics::LinkPtr link = links_to_check.front();
+      links_to_check.pop();
+      connected_component.insert(link);
+      checked_links.insert(link);
+      gzwarn<<" adding link to component: "<<link->GetName()<<std::endl;
+
+      if(link->IsStatic()) {
+        connected_component_is_static = true;
+      }
+
+      // Add parent links to the queue
+      std::vector<gazebo::physics::LinkPtr> parent_links = link->GetParentJointsLinks();
+      for(std::vector<gazebo::physics::LinkPtr>::iterator it_l = parent_links.begin();
+          it_l != parent_links.end();
+          ++it_l)
+      {
+        gzwarn<<" parent link: "<<(*it_l)->GetName()<<std::endl;
+        if(checked_links.find(*it_l) == checked_links.end()) {
+          links_to_check.push(*it_l);
+        }
+      }
+
+      // Add child links to the queue
+      std::vector<gazebo::physics::LinkPtr> child_links = link->GetChildJointsLinks();
+      for(std::vector<gazebo::physics::LinkPtr>::iterator it_l = child_links.begin();
+          it_l != child_links.end();
+          ++it_l)
+      {
+        gzwarn<<" child link: "<<(*it_l)->GetName()<<std::endl;
+        if(checked_links.find(*it_l) == checked_links.end()) {
+          links_to_check.push(*it_l);
+        }
+      }
+    }
+  }
+
 }

@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <iterator>
+#include <queue>
 
 #include "util.h"
 
@@ -211,11 +212,6 @@ namespace assembly_sim {
     // Max erp
     double max_stop_erp;
     double max_erp;
-
-    // The pose of the joint anchor point relative to the mate point.
-    // This gets set each time two atoms are mated, and enables joints
-    // to be consistently strong.
-    KDL::Frame anchor_offset;
   };
 
   // The model for a type of atom
@@ -243,6 +239,12 @@ namespace assembly_sim {
     gazebo::physics::LinkPtr link;
     KDL::Wrench wrench;
   };
+
+  // Get links connected to a given root link
+  void GetConnectedLinks(
+      gazebo::physics::LinkPtr root_link,
+      boost::unordered_set<gazebo::physics::LinkPtr> &connected_component,
+      bool &connected_component_is_static);
 
   // A mate
   struct ProximityMateBase : public Mate
@@ -317,35 +319,96 @@ namespace assembly_sim {
 
     virtual void attach()
     {
+      // TODO:
+      // mate_point.M * this->mate_error // this will rotate the base frame
+
+      // TODO: Set pose for all other links attached to the jumped link
+      // - get jump offset
+      // - apply jump to each element in the connected component that this link is in
+      // - merge connected components
+
+
+      // Get connected components
+      boost::unordered_set<gazebo::physics::LinkPtr>
+        female_component,
+        male_component;
+      bool
+        female_component_static,
+        male_component_static;
+
+      GetConnectedLinks(this->female->link, female_component, female_component_static);
+      GetConnectedLinks(this->male->link, male_component, male_component_static);
+
       // detach the atoms if they're already attached (they're going to be re-attached)
       this->detach();
 
-      // move one of the atoms into the precise relative position
-      KDL::Frame new_frame;
-      gazebo::math::Pose new_pose;
-      if(this->male->link->IsStatic()) {
-        // Move female link
-        to_kdl(this->female->link->GetWorldPose(), new_frame);
-        new_frame.Integrate(this->mate_error, 1.0);
-        this->female->link->SetWorldPose(new_pose);
-        to_gazebo(new_frame, new_pose);
-      } else if(this->female->link->IsStatic()) {
-        // Move male link
-        to_kdl(this->male->link->GetWorldPose(), new_frame);
-        new_frame.Integrate(-this->mate_error, 1.0);
-        to_gazebo(new_frame, new_pose);
-        this->male->link->SetWorldPose(new_pose);
-      } else {
-        gzerr<<"How are you mating two static links?"<<std::endl;
-      }
+      // If the components aren't connected then, one of them needs to be jumped into place
+      if(female_component.find(this->male->link) == female_component.end()) {
+        // Get the atom frames
+        KDL::Frame female_atom_frame, male_atom_frame;
+        to_kdl(this->female->link->GetWorldPose(), female_atom_frame);
+        to_kdl(this->male->link->GetWorldPose(), male_atom_frame);
 
-      // Get the male atom frame
-      KDL::Frame male_atom_frame;
-      to_kdl(this->male->link->GetWorldPose(), male_atom_frame);
+        // move one of the atoms into the precise relative position
+        KDL::Frame current_root_frame;
+        KDL::Frame final_root_frame;
+
+        // Component iterator
+        boost::unordered_set<gazebo::physics::LinkPtr>::iterator it_l_begin(NULL), it_l_end(NULL);
+
+        if(!male_component_static) {
+          // Define the current and final root frames for moving the male atom
+          current_root_frame = male_atom_frame;
+          final_root_frame = female_atom_frame * female_mate_point->pose * (*this->mated_symmetry) * (this->male_mate_point->pose).Inverse();
+
+          // Set iterator to male component
+          it_l_begin = male_component.begin();
+          it_l_end = male_component.end();
+        } else if(!female_component_static) {
+          // Define the current and final root frames for moving the female atom
+          current_root_frame = female_atom_frame;
+          final_root_frame = male_atom_frame * male_mate_point->pose * (*this->mated_symmetry).Inverse() * (this->female_mate_point->pose).Inverse();
+
+          // Set iterator to female component
+          it_l_begin = female_component.begin();
+          it_l_end = female_component.end();
+        }
+
+        // Define the fixed-frame component transform
+        KDL::Frame component_transform = final_root_frame * current_root_frame.Inverse();
+
+        KDL::Frame current_component_frame;
+        KDL::Frame final_component_frame;
+        gazebo::math::Pose final_component_pose;
+
+        for(boost::unordered_set<gazebo::physics::LinkPtr>::iterator it_l = it_l_begin; it_l != it_l_end; ++it_l) {
+          gazebo::physics::LinkPtr comp_link =  *it_l;
+
+          // Move component
+          to_kdl(comp_link->GetWorldPose(), current_component_frame);
+          final_component_frame = component_transform * current_component_frame;
+          to_gazebo(final_component_frame, final_component_pose);
+          comp_link->SetWorldPose(final_component_pose);
+
+          gzwarn<<"jumping "<<comp_link->GetName()<<std::endl;
+        }
+      }
 
       // attach two atoms via joint
       this->joint->Attach(this->female->link, this->male->link);
 
+      // Male and female mate frames in world coordinates
+      gzwarn<<">> mate error (before): "<<this->mate_error.vel.Norm()<<", "<<this->mate_error.rot.Norm()<<std::endl;
+      KDL::Frame female_atom_frame, male_atom_frame;
+      KDL::Frame female_mate_frame, male_mate_frame;
+      to_kdl(this->female->link->GetWorldPose(), female_atom_frame);
+      to_kdl(this->male->link->GetWorldPose(), male_atom_frame);
+      female_mate_frame = female_atom_frame * female_mate_point->pose * (*this->mated_symmetry);
+      male_mate_frame = male_atom_frame * male_mate_point->pose;
+      this->mate_error = KDL::diff(female_mate_frame, male_mate_frame);
+      gzwarn<<">> mate error (after):  "<<this->mate_error.vel.Norm()<<", "<<this->mate_error.rot.Norm()<<std::endl;
+
+#if 0
       // set stiffness based on proximity to goal
       double lin_err = this->mate_error.vel.Norm();
       double ang_err = this->mate_error.rot.Norm();
@@ -382,10 +445,9 @@ namespace assembly_sim {
           male_atom_frame *                 // world to atom
           this->male_mate_point->pose // atom to mate point
           ).Inverse();
-
       //gzwarn<<" ---- initial anchor pose: "<<std::endl<<initial_anchor_frame<<std::endl;
       //gzwarn<<" ---- actual anchor pose: "<<std::endl<<actual_anchor_frame<<std::endl;
-      gzwarn<<">> mate error: "<<this->mate_error.vel.Norm()<<", "<<this->mate_error.rot.Norm()<<std::endl;
+#endif
     }
 
     virtual void detach()
@@ -436,8 +498,7 @@ namespace assembly_sim {
         KDL::Frame female_mate_frame = female_atom_frame * female_mate_point->pose * (*it_sym);
 
         // Compute the world pose of the male mate frame
-        // This takes into account the attachment displacement (anchor_offset)
-        KDL::Frame male_mate_frame = male_atom_frame * male_mate_point->pose * anchor_offset;
+        KDL::Frame male_mate_frame = male_atom_frame * male_mate_point->pose;
 
         // compute twist between the two mate points
         KDL::Twist twist_err = diff(female_mate_frame, male_mate_frame);
@@ -468,6 +529,7 @@ namespace assembly_sim {
           {
             // Re-mate but closer to the desired point
             gzwarn<<"> Request remate "<<getDescription()<<std::endl;
+            this->mated_symmetry = it_sym;
             this->mate_error = twist_err;
             this->requestUpdate(Mate::MATED);
             break;
@@ -653,10 +715,9 @@ namespace assembly_sim {
       to_gazebo(female_mate_frame, female_mate_pose);
 
       // Compute the world pose of the male mate frame
-      // This takes into account the attachment displacement (anchor_offset)
       KDL::Frame male_atom_frame;
       to_kdl(male_atom->link->GetWorldPose(), male_atom_frame);
-      KDL::Frame male_mate_frame = male_atom_frame * male_mate_point->pose * this->anchor_offset;
+      KDL::Frame male_mate_frame = male_atom_frame * male_mate_point->pose;
       gazebo::math::Pose male_mate_pose;
       to_gazebo(male_mate_frame, male_mate_pose);
 

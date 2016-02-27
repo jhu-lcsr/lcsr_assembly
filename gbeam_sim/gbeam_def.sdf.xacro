@@ -333,13 +333,13 @@
 
         <!-- proximity -->
         <attach_threshold>
-          <linear>0.005</linear>
-          <angular>0.05</angular>
+          <linear>0.0005</linear>
+          <angular>0.005</angular>
         </attach_threshold>
 
         <detach_threshold>
-          <linear>0.015</linear>
-          <angular>0.15</angular>
+          <linear>0.005</linear>
+          <angular>0.05</angular>
         </detach_threshold>
 
         <joint type="fixed" name="gbeam">
