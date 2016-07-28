@@ -3,7 +3,7 @@
   <xacro:property name="pi" value="3.14159265"/>
 
   <!-- GBeam links -->
-  <xacro:macro name="gbeam_link" params="prefix suffix pose fixed">
+  <xacro:macro name="gbeam_link" params="prefix suffix pose fixed collide">
     <xacro:if value="${fixed}">
       <joint name="${prefix}gbeam_link${suffix}_anchor" type="revolute">
         <pose>0 0 0 0 0 0</pose>
@@ -43,117 +43,122 @@
           <izz>0.0001</izz>
         </inertia>
       </inertial>
-      <xacro:unless value="true">
-        <collision name='collision'>
-          <!-- use full scanned collision mesh -->
-          <geometry>
-            <mesh><uri>file://$(find gbeam_model)/meshes/gbeam_link_5k.stl</uri></mesh>
-          </geometry>
-          <surface>
-            <friction>
-              <ode>
-                <mu>0.7</mu>
-                <!--<mu2>0.1</mu2>-->
-              </ode>
-            </friction>
-            <bounce>
-              <restitution_coefficient>0.0</restitution_coefficient>
-            </bounce>
-            <contact>
-              <ode>
-                <!--<soft_cfm>0.01</soft_cfm>-->
-                <!--<soft_erp>0.05</soft_erp>-->
-                <!--<kp>50000</kp>-->
-                <!--<kd>8</kd>-->
-              </ode>
-            </contact>
-          </surface>
-        </collision>
-      </xacro:unless>
-      <xacro:if value="true">
-        <!-- Beam -->
-        <collision name='gbeam_link_collision'>
-          <pose>0 0 0 0 -0 0</pose>
-          <geometry>
-            <box>
-              <size>0.035 ${0.24+0.004} 0.035</size>
-            </box>
-          </geometry>
-          <surface>
-            <friction>
-              <ode>
-                <mu>0.2</mu>
-                <!--<mu2>0.7</mu2>-->
-              </ode>
-            </friction>
-            <bounce>
-              <restitution_coefficient>0.0</restitution_coefficient>
-            </bounce>
-            <contact>
-              <ode>
-                <soft_cfm>0.01</soft_cfm>
-                <soft_erp>0.05</soft_erp>
-                <!--<kp>5000</kp>-->
-                <!--<kd>0.2</kd>-->
-              </ode>
-            </contact>
-          </surface>
-        </collision>
-        <!-- Top Cap -->
-        <collision name='gbeam_link_collision_gbeam_link_1'>
-          <pose>0 ${0.115-0.00635/2.0} 0 1.5707 -0 0</pose>
-          <geometry>
-            <cylinder>
-              <length>0.00635</length>
-              <radius>0.028</radius>
-            </cylinder>
-          </geometry>
-          <surface>
-            <friction>
-              <ode>
-                <mu>0.9</mu>
-                <!--<mu2>0.7</mu2>-->
-                <slip1>1.0</slip1>
-                <slip2>1.0</slip2>
-              </ode>
-            </friction>
-            <contact>
-              <ode>
-                <soft_cfm>0.01</soft_cfm>
-                <soft_erp>0.05</soft_erp>
-              </ode>
-            </contact>
-          </surface>
-        </collision>
-        <!-- Bottom Cap -->
-        <collision name='gbeam_link_collision_gbeam_link_2'>
-          <pose>0 ${-0.115+0.00635/2.0} 0 1.5707 -0 0</pose>
-          <geometry>
-            <cylinder>
-              <length>0.00635</length>
-              <radius>0.028</radius>
-            </cylinder>
-          </geometry>
-          <surface>
-            <friction>
-              <ode>
-                <mu>0.9</mu>
-                <slip1>1.0</slip1>
-                <slip2>1.0</slip2>
-                <!--<mu2>0.7</mu2>-->
-              </ode>
-            </friction>
-            <bounce>
-              <restitution_coefficient>0.0</restitution_coefficient>
-            </bounce>
-            <contact>
-              <ode>
-                <soft_cfm>0.01</soft_cfm>
-                <soft_erp>0.02</soft_erp>
-              </ode>
-            </contact>
-          </surface>
-        </collision>
+      <xacro:if value="${collide}">
+        <xacro:unless value="true">
+          <collision name='collision'>
+            <!-- use full scanned collision mesh -->
+            <geometry>
+              <mesh><uri>file://$(find gbeam_model)/meshes/gbeam_link_5k.stl</uri></mesh>
+            </geometry>
+            <surface>
+              <friction>
+                <ode>
+                  <mu>0.7</mu>
+                  <!--<mu2>0.1</mu2>-->
+                </ode>
+              </friction>
+              <bounce>
+                <restitution_coefficient>0.0</restitution_coefficient>
+              </bounce>
+              <contact>
+                <ode>
+                  <!--<soft_cfm>0.01</soft_cfm>-->
+                  <!--<soft_erp>0.05</soft_erp>-->
+                  <!--<kp>50000</kp>-->
+                  <!--<kd>8</kd>-->
+                </ode>
+              </contact>
+            </surface>
+          </collision>
+        </xacro:unless>
+        <xacro:if value="true">
+          <!-- Beam -->
+          <collision name='gbeam_link_collision'>
+            <pose>0 0 0 0 -0 0</pose>
+            <geometry>
+              <box>
+                <size>0.035 ${0.24+0.004} 0.035</size>
+              </box>
+            </geometry>
+            <surface>
+              <friction>
+                <ode>
+                  <mu>0.9</mu>
+                  <!--<mu2>0.7</mu2>-->
+                </ode>
+              </friction>
+              <bounce>
+                <restitution_coefficient>0.0</restitution_coefficient>
+              </bounce>
+              <contact>
+                <ode>
+                  <soft_cfm>0.01</soft_cfm>
+                  <soft_erp>0.05</soft_erp>
+                  <!--<kp>5000</kp>-->
+                  <!--<kd>0.2</kd>-->
+                </ode>
+              </contact>
+            </surface>
+          </collision>
+          <!-- Top Cap -->
+          <collision name='gbeam_link_collision_gbeam_link_1'>
+            <pose>0 ${0.115-0.00635/2.0} 0 1.5707 -0 0</pose>
+            <geometry>
+              <cylinder>
+                <length>0.00635</length>
+                <radius>0.028</radius>
+              </cylinder>
+            </geometry>
+            <surface>
+              <friction>
+                <ode>
+                  <mu>1.0</mu>
+                  <!--<mu2>0.7</mu2>-->
+                  <slip1>1.0</slip1>
+                  <slip2>1.0</slip2>
+                </ode>
+              </friction>
+              <!--<bounce>-->
+                <!--<restitution_coefficient>0.0</restitution_coefficient>-->
+              <!--</bounce>-->
+              <contact>
+                <ode>
+                  <soft_cfm>0.01</soft_cfm>
+                  <soft_erp>0.05</soft_erp>
+                </ode>
+              </contact>
+            </surface>
+          </collision>
+          <!-- Bottom Cap -->
+          <collision name='gbeam_link_collision_gbeam_link_2'>
+            <pose>0 ${-0.115+0.00635/2.0} 0 1.5707 -0 0</pose>
+            <geometry>
+              <cylinder>
+                <length>0.00635</length>
+                <radius>0.028</radius>
+              </cylinder>
+            </geometry>
+            <surface>
+              <friction>
+                <ode>
+                  <mu>1.0</mu>
+                  <!--<mu2>0.7</mu2>-->
+                  <slip1>1.0</slip1>
+                  <slip2>1.0</slip2>
+                </ode>
+              </friction>
+              <!--<bounce>-->
+                <!--<restitution_coefficient>0.0</restitution_coefficient>-->
+              <!--</bounce>-->
+              <contact>
+                <ode>
+                  <soft_cfm>0.01</soft_cfm>
+                  <soft_erp>0.02</soft_erp>
+                </ode>
+              </contact>
+            </surface>
+          </collision>
+        </xacro:if>
       </xacro:if>
 
       <visual name='gbeam_link_visual'>
@@ -170,7 +175,7 @@
     </link>
   </xacro:macro>
 
-  <xacro:macro name="gbeam_node" params="prefix suffix pose fixed">
+  <xacro:macro name="gbeam_node" params="prefix suffix pose fixed collide">
     <xacro:if value="${fixed}">
       <joint name="${prefix}gbeam_node${suffix}_anchor" type="revolute">
         <pose>0 0 0 0 0 0</pose>
@@ -211,31 +216,33 @@
         </inertia>
       </inertial>
 
-      <collision name='collision'>
-        <geometry>
-          <!--<mesh><uri>file://$(find gbeam_model)/meshes/gbeam_node_5k.stl</uri></mesh>-->
-          <box><size>0.056 0.056 0.056</size></box>
-        </geometry>
-        <surface>
-          <friction>
-            <ode>
-              <mu>0.8</mu>
-              <!--<mu2>0.5</mu2>-->
-            </ode>
-          </friction>
-          <bounce>
-            <restitution_coefficient>0.0</restitution_coefficient>
-          </bounce>
-          <contact>
-            <ode>
-              <soft_cfm>0.01</soft_cfm>
-              <soft_erp>0.02</soft_erp>
-              <kp>50000</kp>
-              <kd>0.2</kd>
-            </ode>
-          </contact>
-        </surface>
-      </collision>
+      <xacro:if value="${collide}">
+        <collision name='collision'>
+          <geometry>
+            <!--<mesh><uri>file://$(find gbeam_model)/meshes/gbeam_node_5k.stl</uri></mesh>-->
+            <box><size>0.056 0.056 0.056</size></box>
+          </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>0.8</mu>
+                <!--<mu2>0.5</mu2>-->
+              </ode>
+            </friction>
+            <bounce>
+              <restitution_coefficient>0.0</restitution_coefficient>
+            </bounce>
+            <contact>
+              <ode>
+                <soft_cfm>0.01</soft_cfm>
+                <soft_erp>0.02</soft_erp>
+                <kp>50000</kp>
+                <kd>0.2</kd>
+              </ode>
+            </contact>
+          </surface>
+        </collision>
+      </xacro:if>
 
       <visual name='gbeam_node_visual'>
         <material>
