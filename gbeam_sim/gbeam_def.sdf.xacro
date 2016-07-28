@@ -53,7 +53,7 @@
             <friction>
               <ode>
                 <mu>0.7</mu>
-                <!--<mu2>0.7</mu2>-->
+                <!--<mu2>0.1</mu2>-->
               </ode>
             </friction>
             <bounce>
@@ -61,16 +61,17 @@
             </bounce>
             <contact>
               <ode>
-                <soft_cfm>0.01</soft_cfm>
-                <soft_erp>0.05</soft_erp>
-                <kp>50000</kp>
-                <kd>8</kd>
+                <!--<soft_cfm>0.01</soft_cfm>-->
+                <!--<soft_erp>0.05</soft_erp>-->
+                <!--<kp>50000</kp>-->
+                <!--<kd>8</kd>-->
               </ode>
             </contact>
           </surface>
         </collision>
       </xacro:unless>
       <xacro:if value="true">
+        <!-- Beam -->
         <collision name='gbeam_link_collision'>
           <pose>0 0 0 0 -0 0</pose>
           <geometry>
@@ -92,12 +93,13 @@
               <ode>
                 <soft_cfm>0.01</soft_cfm>
                 <soft_erp>0.05</soft_erp>
-                <kp>50000</kp>
-                <kd>8</kd>
+                <!--<kp>5000</kp>-->
+                <!--<kd>0.2</kd>-->
               </ode>
             </contact>
           </surface>
         </collision>
+        <!-- Top Cap -->
         <collision name='gbeam_link_collision_gbeam_link_1'>
           <pose>0 ${0.115-0.00635/2.0} 0 1.5707 -0 0</pose>
           <geometry>
@@ -109,7 +111,7 @@
           <surface>
             <friction>
               <ode>
-                <mu>1.7</mu>
+                <mu>0.9</mu>
                 <!--<mu2>0.7</mu2>-->
                 <slip1>1.0</slip1>
                 <slip2>1.0</slip2>
@@ -123,6 +125,7 @@
             </contact>
           </surface>
         </collision>
+        <!-- Bottom Cap -->
         <collision name='gbeam_link_collision_gbeam_link_2'>
           <pose>0 ${-0.115+0.00635/2.0} 0 1.5707 -0 0</pose>
           <geometry>
@@ -134,7 +137,7 @@
           <surface>
             <friction>
               <ode>
-                <mu>1.7</mu>
+                <mu>0.9</mu>
                 <slip1>1.0</slip1>
                 <slip2>1.0</slip2>
                 <!--<mu2>0.7</mu2>-->
@@ -147,20 +150,18 @@
               <ode>
                 <soft_cfm>0.01</soft_cfm>
                 <soft_erp>0.02</soft_erp>
-                <kp>50000</kp>
-                <kd>8</kd>
               </ode>
             </contact>
           </surface>
         </collision>
       </xacro:if>
 
-      <visual name='visual'>
+      <visual name='gbeam_link_visual'>
         <material>
-          <ambient>0.6 0.6 0.6 1</ambient>
-          <diffuse>0.5 0.5 0.5 1</diffuse>
-          <specular>1.0 1.0 1.0 1</specular>
-          <emissive>0 0 0 0</emissive>
+          <script>
+            <uri>file://$(find gbeam_model)/urdf/gbeam.material</uri>
+            <name>Gbeam/Link</name>
+          </script>
         </material>
         <geometry>
           <mesh><uri>file://$(find gbeam_model)/meshes/gbeam_link_visual.dae</uri></mesh>
@@ -218,7 +219,7 @@
         <surface>
           <friction>
             <ode>
-              <mu>0.2</mu>
+              <mu>0.8</mu>
               <!--<mu2>0.5</mu2>-->
             </ode>
           </friction>
@@ -230,18 +231,18 @@
               <soft_cfm>0.01</soft_cfm>
               <soft_erp>0.02</soft_erp>
               <kp>50000</kp>
-              <kd>8</kd>
+              <kd>0.2</kd>
             </ode>
           </contact>
         </surface>
       </collision>
 
-      <visual name='visual'>
+      <visual name='gbeam_node_visual'>
         <material>
-          <ambient>0.3 0.3 0.3 1</ambient>
-          <diffuse>0.5 0.5 0.5 1</diffuse>
-          <specular>1.0 1.0 1.0 1</specular>
-          <emissive>0 0 0 0</emissive>
+          <script>
+            <uri>file://$(find gbeam_model)/urdf/gbeam.material</uri>
+            <name>Gbeam/Node</name>
+          </script>
         </material>
         <geometry>
           <mesh><uri>file://$(find gbeam_model)/meshes/gbeam_node_visual.dae</uri></mesh>
@@ -302,39 +303,43 @@
 
         <!-- four-magnet mate -->
         <xacro:if value="1">
-          <max_force>70.0 70.0 15.0</max_force>
-          <max_torque>1.5 1.5 9.0</max_torque>
+          <!-- This is the maximum force in the mate frame before the mate detaches -->
+          <max_force>70.0 70.0 10.0</max_force>
+          <!-- This is the maximum torque in the mate frame before the mate detaches -->
+          <max_torque>1.7 1.7 9.0</max_torque>
+          <!-- This is the maximum distance between the mate points before the mate detaches -->
           <max_distance>0.03</max_distance>
 
+          <!-- Four diples arranged in a cross patter, aligned pointing out along the local z axis -->
           <dipole>
             <position>0.01 0.01 0</position>
-            <moment>0 0 0.02</moment>
+            <moment>0 0 0.03</moment>
             <min_distance>0.003</min_distance>
           </dipole>
 
           <dipole>
             <position>-0.01 0.01 0</position>
-            <moment>0 0 0.02</moment>
+            <moment>0 0 0.03</moment>
             <min_distance>0.003</min_distance>
           </dipole>
 
           <dipole>
             <position>-0.01 -0.01 0</position>
-            <moment>0 0 0.02</moment>
+            <moment>0 0 0.03</moment>
             <min_distance>0.003</min_distance>
           </dipole>
 
           <dipole>
             <position>0.01 -0.01 0</position>
-            <moment>0 0 0.02</moment>
+            <moment>0 0 0.03</moment>
             <min_distance>0.003</min_distance>
           </dipole>
         </xacro:if>
 
         <!-- proximity -->
         <attach_threshold>
-          <linear>0.0005</linear>
-          <angular>0.005</angular>
+          <linear>0.001</linear>
+          <angular>0.01</angular>
         </attach_threshold>
 
         <detach_threshold>
