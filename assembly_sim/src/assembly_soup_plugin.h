@@ -1,6 +1,10 @@
 #ifndef __ASSEMBLY_SIM_ASSEMBLY_SOUP_PLUGIN_H
 #define __ASSEMBLY_SIM_ASSEMBLY_SOUP_PLUGIN_H
 
+#include <queue>
+
+#include <ros/ros.h>
+
 #include <boost/bind.hpp>
 #include <gazebo/gazebo.hh>
 #include <gazebo/physics/physics.hh>
@@ -14,127 +18,9 @@
 
 #include <kdl/frames.hpp>
 
+#include "models.h"
+
 namespace assembly_sim {
-  struct MateModel;
-  struct MatePointModel;
-  struct AtomModel;
-
-  struct Mate;
-  struct MatePoint;
-  struct Atom;
-
-  typedef boost::shared_ptr<MateModel> MateModelPtr;
-  typedef boost::shared_ptr<MatePointModel> MatePointModelPtr;
-  typedef boost::shared_ptr<AtomModel> AtomModelPtr;
-
-  typedef boost::shared_ptr<Mate> MatePtr;
-  typedef boost::shared_ptr<MatePoint> MatePointPtr;
-  typedef boost::shared_ptr<Atom> AtomPtr;
-
-  // The model for a type of mate
-  struct MateModel
-  {
-    std::string type;
-
-    // Transforms from the base mate frame to alternative frames
-    std::vector<KDL::Frame> symmetries;
-
-    // Threshold for attaching a mate
-    double attach_threshold_linear;
-    double attach_threshold_angular;
-
-    // Threshold for detaching a mate
-    double detach_threshold_linear;
-    double detach_threshold_angular;
-
-    // The sdf template for the joint to be created
-    boost::shared_ptr<sdf::SDF> joint_template_sdf;
-    sdf::ElementPtr joint_template;
-  };
-
-  struct MatePointModel
-  {
-    // The model used by this mate point
-    MateModelPtr model;
-
-    // Mate point index
-    size_t id;
-
-    // The pose of the mate point in the owner frame
-    KDL::Frame pose;
-  };
-
-  // The model for a type of atom
-  struct AtomModel
-  {
-    // The type of atom
-    std::string type;
-
-    // Models for the mates
-    std::vector<MatePointModelPtr> female_mate_points;
-    std::vector<MatePointModelPtr> male_mate_points;
-
-    // The sdf for the link to be created for this atom
-    boost::shared_ptr<sdf::SDF> link_template_sdf;
-    sdf::ElementPtr link_template;
-  };
-
-  // An instantiated mate
-  struct Mate
-  {
-    // TODO add constructor that does lines 300-326 from the cpp file
-    Mate(
-      gazebo::physics::ModelPtr gazebo_model,
-      MatePointModelPtr female_mate_point_model_,
-      MatePointModelPtr male_mate_point_model_,
-      AtomPtr female_atom,
-      AtomPtr male_atom);
-
-    // Joint SDF
-    sdf::ElementPtr joint_sdf;
-    // Joint associated with mate
-    // If this is NULL then the mate is unoccupied
-    gazebo::physics::JointPtr joint;
-
-    // Max erp
-    double max_stop_erp;
-    double max_erp;
-
-    // Atoms associated with this mate
-    AtomPtr female;
-    AtomPtr male;
-
-    // Mate point models
-    MatePointModelPtr female_mate_point_model;
-    MatePointModelPtr male_mate_point_model;
-
-    // The pose of the joint anchor point relative to the mate point.
-    // This gets set each time two atoms are mated, and enables joints
-    // to be consistently strong.
-    KDL::Frame anchor_offset;
-    KDL::Twist mate_error;
-  };
-
-  // A point where a mate can be created
-  struct MatePoint
-  {
-    // The model used by this mate point
-    MatePointModelPtr model;
-  };
-
-  // An instantiated atom
-  struct Atom
-  {
-    // The model used by this atom
-    AtomModelPtr model;
-
-    // Mate points
-    std::vector<MatePointPtr> female_mate_points;
-    std::vector<MatePointPtr> male_mate_points;
-
-    // The link on the assembly model
-    gazebo::physics::LinkPtr link;
-  };
 
   class AssemblySoup : public gazebo::ModelPlugin
   {
@@ -163,14 +49,10 @@ namespace assembly_sim {
       boost::mutex update_mutex_;
 
       // update thread
-      boost::thread check_thread_;
-      void CheckProximityLoop();
-      void DoProximityCheck(); // run one collision check
+      boost::thread state_update_thread_;
+      void stateUpdateLoop();
+      void queueStateUpdates();
       bool running_;
-
-      // mates to attach/detach in OnUpdate thread
-      boost::unordered_set<MatePtr> mates_to_attach;
-      boost::unordered_set<MatePtr> mates_to_detach;
 
     protected:
       size_t mate_id_counter_;
@@ -179,14 +61,17 @@ namespace assembly_sim {
       double max_trans_err_;
       double max_rot_err_;
 
+      std::map<std::string, MateFactoryBasePtr> mate_factories_;
       std::map<std::string, MateModelPtr> mate_models_;
       std::map<std::string, AtomModelPtr> atom_models_;
 
       std::vector<AtomPtr> atoms_;
 
-      typedef boost::unordered_map<MatePointPtr, MatePtr> mate_point_map_t;
-      typedef boost::unordered_map<MatePointPtr, mate_point_map_t> mate_table_t;
-      mate_table_t mate_table_;
+      // all mates
+      boost::unordered_set<MatePtr> mates_;
+
+      // mates to attach/detach in OnUpdate thread
+      std::queue<MatePtr> mate_update_queue_;
 
       // for broadcasting coordinate transforms
       bool broadcast_tf_;
@@ -194,6 +79,8 @@ namespace assembly_sim {
 
       clock_t last_tick_;
       int updates_per_second_;
+
+      gazebo::common::Time last_update_time_;
 
   };
 }

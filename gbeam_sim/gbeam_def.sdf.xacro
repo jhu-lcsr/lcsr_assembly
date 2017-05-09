@@ -254,8 +254,8 @@
     <plugin name='hand_of_god' filename="libgazebo_ros_hand_of_god.so">
       <frameId>hog</frameId>
       <linkName>hog</linkName>
-      <kl>400</kl>
-      <ka>200</ka>
+      <kl>100</kl>
+      <ka>50</ka>
     </plugin>
     <link name ='hog'>
       <self_collide>1</self_collide>
@@ -283,7 +283,7 @@
 
   <!-- GBeam mates -->
   <xacro:macro name="gbeam_mate" params="linear_attach angular_attach linear_detach angular_detach">
-    <mate_model type="gbeam">
+    <mate_model type="gbeam" model="dipole">
       <!-- planar shear-supporting magnetic mate
            mating surface is along positive z-axis
              -->
@@ -291,14 +291,58 @@
           <rot>1 1 4</rot>
         </symmetry>
 
+        <!-- single-magnet mate -->
+        <xacro:if value="0">
+          <dipole>
+            <position>0.0 0.0 0</position>
+            <moment>0 0 0.3</moment>
+            <min_distance>0.004</min_distance>
+          </dipole>
+        </xacro:if>
+
+        <!-- four-magnet mate -->
+        <xacro:if value="1">
+          <max_force>50.0 50.0 10.0</max_force>
+          <max_torque>0.5 0.5 5.0</max_torque>
+
+          <dipole>
+            <position>0.01 0.01 0</position>
+            <moment>0 0 0.02</moment>
+            <min_distance>0.003</min_distance>
+          </dipole>
+
+          <dipole>
+            <position>-0.1 0.01 0</position>
+            <moment>0 0 0.02</moment>
+            <min_distance>0.003</min_distance>
+          </dipole>
+
+          <dipole>
+            <position>-0.01 -0.01 0</position>
+            <moment>0 0 0.02</moment>
+            <min_distance>0.003</min_distance>
+          </dipole>
+
+          <dipole>
+            <position>0.01 -0.01 0</position>
+            <moment>0 0 0.02</moment>
+            <min_distance>0.003</min_distance>
+          </dipole>
+        </xacro:if>
+
+        <!-- proximity -->
         <attach_threshold>
-          <linear>${linear_attach}</linear>
-          <angular>${angular_attach}</angular>
+          <linear>0.0005</linear>
+          <angular>0.05</angular>
+          <!--<linear>${linear_attach}</linear>-->
+          <!--<angular>${angular_attach}</angular>-->
         </attach_threshold>
 
         <detach_threshold>
-          <linear>${linear_detach}</linear>
-          <angular>${angular_detach}</angular>
+          <linear>0.005</linear>
+          <angular>0.05</angular>
+          <!--<linear>${linear_detach}</linear>-->
+          <!--<angular>${angular_detach}</angular>-->
         </detach_threshold>
 
         <joint type="prismatic" name="gbeam">
@@ -306,24 +350,25 @@
           <parent>gbeam_link</parent>
           <child>gbeam_node</child>
           <axis>
-            <xyz>0 1 0</xyz>
+            <xyz>0 0 1</xyz>
             <limit>
-              <lower>-0.001</lower>
-              <upper>0.001</upper>
+              <lower>-0.0001</lower>
+              <upper>0.0001</upper>
             </limit>
             <dynamics>
               <damping>0.1</damping>
             </dynamics>
           </axis>
           <physics>
+            <provide_feedback>true</provide_feedback>
             <ode>
-              <cfm_damping>true</cfm_damping>
-              <cfm>0.01</cfm>
-              <erp>0.02</erp>
-              <limit>
-                <cfm>0.01</cfm>
-                <erp>0.01</erp>
-              </limit>
+              <!--<cfm_damping>true</cfm_damping>-->
+              <!--<cfm>1.0</cfm>-->
+              <!--<erp>0.02</erp>-->
+              <!--<limit>-->
+                <!--<cfm>0.001</cfm>-->
+                <!--<erp>0.01</erp>-->
+              <!--</limit>-->
             </ode>
           </physics>
         </joint>

@@ -102,6 +102,8 @@ include_directories(include
 
 add_library(assembly_soup_plugin
   src/assembly_soup_plugin.cpp
+  src/util.cpp
+  src/models.cpp
   )
 
 target_link_libraries(assembly_soup_plugin
