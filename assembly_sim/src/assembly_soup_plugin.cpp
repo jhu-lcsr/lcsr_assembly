@@ -326,6 +326,7 @@ namespace assembly_sim
          ++it, ++iter)
     {
       MatePtr mate = *it;
+      std::cerr << tf_world_frame_ << ", " << mate->joint->GetName() << " " << broadcast_tf_ << "\n";
 
       if(publish_active_mates_ and mate->state == Mate::MATED) {
         mates_msg.female.push_back(mate->joint->GetParent()->GetName());
@@ -348,6 +349,9 @@ namespace assembly_sim
         mate_update_queue_.push(mate);
       }
 #endif
+
+        std::cerr << "!!!!!!!!!!!!!\n";
+        std::cerr << tf_world_frame_ << ", " << mate->joint->GetName() << " " << broadcast_tf_ << "\n";
 
       // Broadcast the TF frame for this joint
       // TODO: move this introspection out of this thread
