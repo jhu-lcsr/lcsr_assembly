@@ -43,7 +43,6 @@
 
   <run_depend>gazebo_plugins</run_depend>
   <run_depend>assembly_sim</run_depend>
-  <run_depend>gbeam_link</run_depend>
   <run_depend>gbeam_model</run_depend>
 
   <!-- The export tag contains other, unspecified, tags -->
